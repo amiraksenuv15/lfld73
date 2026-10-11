@@ -1,0 +1,78 @@
+/* ============================================
+   AI-ПАРСЕР ЗАЯВОК + AI-АССИСТЕНТ
+   ============================================ */
+
+.ai-upload-zone {
+  border: 2px dashed #1E3A5F;
+  border-radius: 8px;
+  padding: 24px;
+  text-align: center;
+  background: #F7FAFC;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 15px;
+}
+.ai-upload-zone:hover, .ai-upload-zone.dragover { background: #EFF6FF; border-color: #2563EB; }
+.ai-upload-zone .ai-upload-icon { font-size: 32px; margin-bottom: 8px; }
+.ai-upload-zone .ai-upload-text { font-weight: 600; color: #1B2733; font-size: 13px; }
+.ai-upload-zone .ai-upload-hint { font-size: 11px; color: #64748B; margin-top: 6px; }
+
+.ai-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 15px; }
+
+.ai-status { margin-top: 12px; padding: 10px 14px; border-radius: 8px; font-weight: 600; font-size: 13px; display: none; }
+.ai-status.show { display: block; }
+.ai-status.ok { background: #DCFCE7; color: #16A34A; border: 1px solid #BBF7D0; }
+.ai-status.err { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+.ai-status.info { background: #EFF6FF; color: #2563EB; border: 1px solid #BFDBFE; }
+
+.roster-preview-content { max-width: 960px !important; width: 95% !important; max-height: 90vh !important; }
+.rp-subtitle { color: #64748B; font-weight: 600; margin: -8px 0 18px; font-size: 13px; }
+
+.rp-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px 16px; background: #F7FAFC; border-radius: 8px; border: 1px solid #E2E8F0; }
+.rp-stat { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #1B2733; }
+.rp-stat .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.rp-stat .dot.stay { background: #16A34A; }
+.rp-stat .dot.transfer { background: #D97706; }
+.rp-stat .dot.newbie { background: #2563EB; }
+
+.rp-club-block { background: #F7FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+.rp-club-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid #E2E8F0; }
+.rp-club-name { font-weight: 800; color: #1E3A5F; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px; flex: 1; }
+.rp-club-count { background: #1E3A5F; color: #fff; padding: 3px 12px; border-radius: 50px; font-size: 11px; font-weight: 700; }
+.rp-club-hint { font-size: 11px; color: #64748B; margin-bottom: 12px; font-style: italic; }
+
+.rp-player-row { display: grid; grid-template-columns: 30px 1fr 160px 150px 36px; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #EFF6FF; }
+.rp-player-row:last-child { border-bottom: none; }
+.rp-player-num { font-weight: 700; color: #64748B; font-size: 12px; text-align: center; }
+.rp-player-name { background: #fff !important; border: 1px solid #E2E8F0 !important; border-radius: 6px !important; padding: 7px 10px !important; font-weight: 500; font-size: 13px; color: #1B2733 !important; width: 100%; font-family: inherit; box-shadow: none !important; cursor: text !important; }
+.rp-player-name:focus { outline: none; border-color: #2563EB !important; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15) !important; }
+
+.rp-status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 50px; font-weight: 700; font-size: 11px; white-space: nowrap; text-align: center; justify-content: center; overflow: hidden; text-overflow: ellipsis; }
+.rp-status-badge.stay { background: #DCFCE7; color: #16A34A; }
+.rp-status-badge.transfer { background: #FEF3C7; color: #B45309; }
+.rp-status-badge.newbie { background: #EFF6FF; color: #2563EB; }
+
+.rp-club-select { background: #fff !important; border: 1px solid #E2E8F0 !important; border-radius: 6px !important; padding: 7px 10px !important; font-size: 12px; font-weight: 600; color: #1B2733 !important; width: 100%; font-family: inherit; cursor: pointer; box-shadow: none !important; }
+.rp-club-select:focus { outline: none; border-color: #2563EB !important; }
+
+.rp-delete-btn { background: #DC2626 !important; color: #fff !important; border: none; width: 30px; height: 30px; border-radius: 6px !important; padding: 0 !important; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 0.15s; min-width: 0 !important; box-shadow: none !important; }
+.rp-delete-btn:hover { background: #B91C1C !important; transform: scale(1.05); }
+
+.rp-actions { display: flex; gap: 10px; margin-top: 20px; padding-top: 20px; border-top: 2px solid #E2E8F0; flex-wrap: wrap; }
+.rp-empty { text-align: center; color: #64748B; padding: 40px 20px; font-style: italic; }
+
+.ai-assistant-output { background: #F7FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px; margin-top: 12px; font-size: 13px; line-height: 1.6; color: #1B2733; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
+
+.admin-photos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 12px; }
+.admin-photo-thumb { position: relative; aspect-ratio: 1/1; border-radius: 6px; overflow: hidden; border: 1px solid #E2E8F0; }
+.admin-photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.admin-photo-thumb button { position: absolute; top: 4px; right: 4px; background: #DC2626 !important; color: #fff; border: none; width: 22px; height: 22px; border-radius: 4px !important; padding: 0 !important; font-size: 11px; font-weight: 700; cursor: pointer; min-width: 0 !important; }
+
+@media (max-width: 700px) {
+  .rp-player-row { grid-template-columns: 24px 1fr 36px; grid-template-areas: "num name del" ". badge ." ". club ."; gap: 6px; }
+  .rp-player-num { grid-area: num; }
+  .rp-player-name { grid-area: name; }
+  .rp-status-badge { grid-area: badge; justify-self: start; }
+  .rp-club-select { grid-area: club; }
+  .rp-delete-btn { grid-area: del; }
+}

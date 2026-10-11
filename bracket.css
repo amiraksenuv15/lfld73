@@ -1,0 +1,86 @@
+/* ============================================================
+   BRACKET — турнирная сетка плей-офф
+   ============================================================ */
+
+.bracket-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 12px 0 24px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bracket-scroll::-webkit-scrollbar { height: 8px; }
+.bracket-scroll::-webkit-scrollbar-track { background: rgba(148,163,184,0.08); border-radius: 4px; }
+.bracket-scroll::-webkit-scrollbar-thumb { background: rgba(245,166,35,0.5); border-radius: 4px; }
+.bracket-scroll::-webkit-scrollbar-thumb:hover { background: rgba(245,166,35,0.85); }
+
+.bracket {
+  position: relative;
+  display: flex;
+  gap: 90px;
+  min-width: 1100px;
+  padding: 24px 40px 40px;
+}
+
+.bracket-svg {
+  position: absolute;
+  top: 0; left: 0;
+  pointer-events: none;
+  z-index: 1;
+  overflow: visible;
+}
+
+.bracket-round {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 26px;
+  flex: 0 0 320px;
+  min-width: 320px;
+  position: relative;
+  z-index: 2;
+}
+
+.bracket-round-title {
+  font-family: var(--font-accent, 'Russo One', sans-serif);
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--gold, #f5a623);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  text-align: center;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(245,166,35,0.3);
+}
+
+.bracket-round-subtitle {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--text-muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  text-align: center;
+  margin: 22px 0 10px;
+  padding-top: 18px;
+  border-top: 1px dashed rgba(255,255,255,0.14);
+}
+
+.bracket-match { position: relative; }
+
+.bracket-team-logo {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+.bracket-match .lfld-match-card { padding: 12px 14px; }
+.bracket-match .lfld-match-card-top { padding-bottom: 8px; margin-bottom: 10px; }
+
+@media (max-width: 900px) {
+  .bracket { gap: 60px; min-width: 900px; padding: 20px 24px 32px; }
+  .bracket-round { flex: 0 0 260px; min-width: 260px; }
+  .bracket-round-title { font-size: 10px; }
+}
