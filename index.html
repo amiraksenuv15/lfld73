@@ -9,10 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Russo+One&family=Ubuntu:wght@400;500;700&display=swap">
 
-  <!-- Аварийный критический CSS (тёмный фон + скрытие модалок) -->
   <style>
     html, body {
-      background: #0b111e !important;
+      background-color: #0b132b !important;
       color: #f1f5f9 !important;
       margin: 0; padding: 0;
       min-height: 100vh;
@@ -41,6 +40,42 @@
     #view-welcome, #view-affiche, #view-tourney, #view-club, #view-admin {
       min-height: 100px;
     }
+
+    /* ⚡ Компактная сетка матчей (для секции туров) */
+    .matches-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 12px;
+    }
+    @media (max-width: 768px) {
+      .matches-grid { grid-template-columns: 1fr; gap: 10px; }
+    }
+    /* Компактные карточки в сетке — уменьшаем логотипы и шрифты */
+    .matches-grid .lfld-card-team-logo {
+      width: 32px !important; height: 32px !important;
+      min-width: 32px !important; max-width: 32px !important;
+      min-height: 32px !important; max-height: 32px !important;
+    }
+    @media (min-width: 640px) {
+      .matches-grid .lfld-card-team-logo {
+        width: 36px !important; height: 36px !important;
+        min-width: 36px !important; max-width: 36px !important;
+        min-height: 36px !important; max-height: 36px !important;
+      }
+    }
+    .matches-grid .lfld-card-score {
+      font-size: 16px; padding: 5px 12px; min-width: 60px;
+    }
+    .matches-grid .lfld-match-card { padding: 12px 14px; }
+    .matches-grid .lfld-match-card-title { font-size: 9px; }
+    .matches-grid .lfld-match-card-stage { font-size: 10px; }
+    .matches-grid .lfld-match-card-goals {
+      font-size: 11px;
+      gap: 8px;
+      margin-top: 8px;
+      padding-top: 8px;
+    }
+    .matches-grid .lfld-card-col { line-height: 1.4; }
   </style>
 
   <script src="teamsData.js"></script>
@@ -55,6 +90,7 @@
   <link rel="stylesheet" href="lfld-v2.css">
 </head>
 <body>
+  <div id="site-bg-layer"></div>
   <header>
     <div class="header-title" id="brandBtn">
       <span id="fedLogoDisplay"></span>
@@ -174,8 +210,16 @@
           <div id="tableRoundContent"></div>
           <table id="fullTable">
             <thead><tr>
-              <th>#</th><th class="text-left">Клуб</th>
-              <th>И</th><th>В</th><th>Н</th><th>П</th><th>Мячи</th><th>Очки</th><th>Выбор</th>
+              <th>#</th>
+              <th class="text-left">Клуб</th>
+              <th>И</th>
+              <th>В</th>
+              <th>Н</th>
+              <th>П</th>
+              <th>Мячи</th>
+              <th>РМ</th>
+              <th>О</th>
+              <th>Выбор</th>
             </tr></thead>
             <tbody id="tableBody"></tbody>
           </table>
@@ -187,10 +231,10 @@
         <div id="tab-scorers" style="display:none;">
           <table>
             <thead><tr>
-              <th>#</th><th class="text-left">Игрок</th><th class="text-left">Команда</th>
+              <th>#</th>
+              <th class="text-left">Игрок</th>
+              <th class="text-left">Команда</th>
               <th>Голы</th>
-              <th class="yellow-head">ЖК</th>
-              <th class="red-head">КК</th>
             </tr></thead>
             <tbody id="scorersBody"></tbody>
           </table>
@@ -199,8 +243,11 @@
         <div id="tab-assists" style="display:none;">
           <table>
             <thead><tr>
-              <th>#</th><th class="text-left">Игрок</th><th class="text-left">Команда</th>
-              <th>Голевые передачи</th>
+              <th>#</th>
+              <th class="text-left">Игрок</th>
+              <th class="text-left">Команда</th>
+              <th>И</th>
+              <th>👟 Пас / А</th>
             </tr></thead>
             <tbody id="assistsBody"></tbody>
           </table>
@@ -279,8 +326,6 @@
             <th>И</th>
             <th>Голы</th>
             <th>Ассисты</th>
-            <th class="yellow-head">ЖК</th>
-            <th class="red-head">КК</th>
             <th>Досье</th>
           </tr></thead>
           <tbody id="clubRosterBody"></tbody>
@@ -297,6 +342,7 @@
           <button id="closeAdminBtn">Выйти из админки ✕</button>
         </div>
         <div id="adminExtrasContainer"></div>
+        <div id="siteBgAdminWrap"></div>
         <div id="totwAdminWrap"></div>
         <div id="afficheAdminWrap"></div>
         <div id="meAdminWrap"></div>
@@ -318,7 +364,6 @@
       <table>
         <thead><tr>
           <th>Турнир</th><th>Клуб</th><th>Голы</th><th>Пасы</th>
-          <th class="yellow-head">ЖК</th><th class="red-head">КК</th>
         </tr></thead>
         <tbody id="modalCareerBody"></tbody>
       </table>
@@ -465,7 +510,6 @@
       { name: "Нейтрон",          logo: "logos/neutron.png" },
       { name: "ПТИМАШ",           logo: "logos/ptimash.png" },
       { name: "Спринт",           logo: "logos/sprint.png" },
-      { name: "Спринт-Кальяри",   logo: "logos/sprint.png" },
       { name: "Комета",           logo: "logos/cometa.png" },
       { name: "Металлист",        logo: "logos/metallist.png" },
       { name: "Металлист-М",      logo: "logos/metallist.png" },
@@ -476,12 +520,29 @@
       { name: "Волга",            logo: "⚽" },
       { name: "Тонус",            logo: "⚽" },
       { name: "ФК НЕ Молодёжка",  logo: "⚽" },
-      { name: "МИФИ",             logo: "logos/mifi.png" },
       { name: "ДИТИ НИЯУ МИФИ",   logo: "logos/mifi.png" },
       { name: "СШ Лада",          logo: "logos/lada.png" },
-      { name: "ЛАДА",             logo: "logos/lada.png" },
       { name: "Нефтчи",           logo: "logos/neftchi.png" }
     ];
+
+    var CLUB_ALIASES = {
+      'спринт-кальяри': 'Спринт',
+      'спринт-кальян':  'Спринт',
+      'спринт кальяри': 'Спринт',
+      'мифи':           'ДИТИ НИЯУ МИФИ',
+      'мфи':            'ДИТИ НИЯУ МИФИ',
+      'дити нияу мифи': 'ДИТИ НИЯУ МИФИ',
+      'лада':           'СШ Лада',
+      'сш лада':        'СШ Лада',
+      'сшлада':         'СШ Лада'
+    };
+    function canonicalClub(name) {
+      if (!name) return '';
+      var n = String(name).toLowerCase().replace(/ё/g, 'е').trim();
+      if (CLUB_ALIASES[n]) return CLUB_ALIASES[n];
+      return name;
+    }
+    window.canonicalClub = canonicalClub;
 
     var CUP_START_MATCHES = (window.HISTORY && window.HISTORY.cup5x5Playoff) || [];
     var DEFAULT_TOURNAMENTS = (window.HISTORY && window.HISTORY.tournaments) || {};
@@ -535,6 +596,30 @@
       return data;
     })();
 
+    (function unifyClubs() {
+      Object.keys(tournamentsData).forEach(function (tk) {
+        var t = tournamentsData[tk];
+        if (!t) return;
+        if (Array.isArray(t.teams)) {
+          t.teams = t.teams.map(function (c) { return canonicalClub(c); });
+          t.teams = t.teams.filter(function (c, i) { return t.teams.indexOf(c) === i; });
+        }
+        (t.matches || []).forEach(function (m) {
+          if (m.t1) m.t1 = canonicalClub(m.t1);
+          if (m.t2) m.t2 = canonicalClub(m.t2);
+          if (m.scorers) {
+            var s = m.scorers;
+            s = s.replace(/Спринт-Кальяри/gi, 'Спринт');
+            s = s.replace(/\bМИФИ\b/g, 'ДИТИ НИЯУ МИФИ');
+            s = s.replace(/ДИТИ НИЯУ ДИТИ НИЯУ МИФИ/g, 'ДИТИ НИЯУ МИФИ');
+            s = s.replace(/\bЛАДА\b(?!:)/g, 'СШ Лада');
+            s = s.replace(/СШ СШ Лада/g, 'СШ Лада');
+            m.scorers = s;
+          }
+        });
+      });
+    })();
+
     function saveTournamentsToStorage() { try { localStorage.setItem('ff_tournaments', JSON.stringify(tournamentsData)); } catch(e) {} }
 
     var currentTourneyKey = (function() {
@@ -565,7 +650,6 @@
     function saveVkLiveLinks() { try { localStorage.setItem('ff_vk_live', JSON.stringify(vkLiveLinks)); } catch(e) {} }
     function saveTeamPhotos() { try { localStorage.setItem('ff_team_photos', JSON.stringify(teamPhotos)); } catch(e) {} }
 
-    /* ===== Логотипы в белой круглой плашке ===== */
     function _logoWrap(innerHtml, size) {
       return '<span class="logo-plashka size-' + (size || 'sm') + '">' + innerHtml + '</span>';
     }
@@ -582,13 +666,15 @@
       return _logoWrap(inner, bigSize ? 'xl' : 'xs');
     }
     function getClubLogoHtml(clubName, isLarge) {
-      var c = clubsData.find(function(x) { return x.name === clubName; });
+      var cName = canonicalClub(clubName);
+      var c = clubsData.find(function(x) { return x.name === cName; });
       var logo = c ? c.logo : '⚽';
       return renderLogoHtml(logo, isLarge ? 'badge-large' : 'badge-icon', isLarge);
     }
     function getClubLogoForCard(clubName) {
-      if (!clubName) return '<span class="logo-plashka size-md">⚽</span>';
-      var c = clubsData.find(function(x) { return x.name === clubName; });
+      var cName = canonicalClub(clubName);
+      if (!cName) return '<span class="logo-plashka size-md">⚽</span>';
+      var c = clubsData.find(function(x) { return x.name === cName; });
       var logo = c ? c.logo : '⚽';
       var isImage = false;
       try {
@@ -600,6 +686,24 @@
         : '<span style="font-size:22px;line-height:1;">' + logo + '</span>';
       return '<span class="logo-plashka size-md">' + inner + '</span>';
     }
+    /* ⚡ Мини-эмблема для таблиц (бомбардиры, ассистенты) */
+    function getClubLogoMini(clubName) {
+      var cName = canonicalClub(clubName);
+      if (!cName) return '<span class="logo-plashka size-xs">⚽</span>';
+      var c = clubsData.find(function(x) { return x.name === cName; });
+      var logo = c ? c.logo : '⚽';
+      var isImage = false;
+      try {
+        isImage = (logo.indexOf('data:image') === 0 || logo.indexOf('http') === 0 ||
+                   logo.indexOf('/') !== -1 || /\.(png|jpe?g|gif|svg|webp|bmp|ico)$/i.test(logo));
+      } catch (e) {}
+      var inner = isImage
+        ? '<img src="' + logo + '" alt="" loading="lazy">'
+        : '<span style="font-size:14px;line-height:1;">' + logo + '</span>';
+      return '<span class="logo-plashka size-xs" style="width:24px;height:24px;">' + inner + '</span>';
+    }
+    window.getClubLogoMini = getClubLogoMini;
+
     function getFedLogoHtml() { return renderLogoHtml(FED_LOGO, "badge-icon", false); }
     function cleanName(n) { n = (n || '').trim(); if (n === "Нагорнов И." || n === "Нагорнов И") return "Нагорнов Илья"; return n; }
     function escapeAttr(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
@@ -621,7 +725,7 @@
         (m.scorers || '').split(';').forEach(function(part) {
           part = part.trim(); if (!part) return;
           var sp = part.split(':'); if (sp.length < 2) return;
-          var club = sp[0].trim();
+          var club = canonicalClub(sp[0].trim());
           var rest = sp.slice(1).join(':');
           var redPart = '', yellowPart = '';
           var k = rest.indexOf('КК:'); if (k !== -1) { redPart = rest.slice(k + 3); rest = rest.slice(0, k); }
@@ -632,7 +736,11 @@
             var cnt = 1; var mm = token.match(/\((\d+)\)/);
             if (mm) { cnt = parseInt(mm[1]) || 1; token = token.replace(/\((\d+)\)/, '').trim(); }
             var assistName = '';
-            if (token.indexOf('/') !== -1) { var pp = token.split('/'); token = pp[0].trim(); assistName = (pp[1] || '').trim(); }
+            if (token.indexOf('/') !== -1) {
+              var pp = token.split('/');
+              token = pp[0].trim();
+              assistName = (pp[1] || '').trim();
+            }
             var name = cleanName(token); if (!name) return;
             var p = getPlayer(name, club);
             p.goals += cnt;
@@ -670,11 +778,25 @@
 
     function getAssists(tKey) {
       var map = {};
-      function add(n, c, cnt) { if (!n) return; var k = n + '|' + c; if (!map[k]) map[k] = { name: n, club: c, assists: 0 }; map[k].assists += cnt; }
+      function add(n, c, cnt) { if (!n) return; var cn = canonicalClub(c); var k = n + '|' + cn; if (!map[k]) map[k] = { name: n, club: cn, assists: 0 }; map[k].assists += cnt; }
       if (tKey === '5x5' || tKey === 'cup_5x5') ASSISTS_BASE_5X5.forEach(function(a) { add(a.name, a.club, a.assists); });
       var t = tournamentsData[tKey];
-      if (t && t.matches) t.matches.forEach(function(m) { (m.events || []).forEach(function(e) { if (e.type === 'goal' && e.assist) add(e.assist, e.club, 1); }); });
-      if (t && t.playoff && t.playoff.matches) t.playoff.matches.forEach(function(m) { (m.events || []).forEach(function(e) { if (e.type === 'goal' && e.assist) add(e.assist, e.club, 1); }); });
+      if (t && t.matches) t.matches.forEach(function(m) {
+        var parsed = parseCardScorers(m.scorers || '', m.t1, m.t2);
+        [m.t1, m.t2].forEach(function (club) {
+          (parsed[club].goals || []).forEach(function (g) {
+            if (g.assist) add(g.assist, club, g.count || 1);
+          });
+        });
+      });
+      if (t && t.playoff && t.playoff.matches) t.playoff.matches.forEach(function(m) {
+        var parsed = parseCardScorers(m.scorers || '', m.t1, m.t2);
+        [m.t1, m.t2].forEach(function (club) {
+          (parsed[club].goals || []).forEach(function (g) {
+            if (g.assist) add(g.assist, club, g.count || 1);
+          });
+        });
+      });
       return Object.keys(map).map(function(k) { return map[k]; }).sort(function(a, b) { return b.assists - a.assists; });
     }
 
@@ -695,6 +817,8 @@
     function showWelcome() {
       showView('welcome');
       if (window.bannerManager && window.bannerManager.restart) window.bannerManager.restart();
+      var heroEl = document.getElementById('welcomeHero');
+      if (heroEl) heroEl.style.display = 'block';
       renderHomeUpcoming();
       renderHomeSymbolic();
       if (window.LFLD_V2 && window.LFLD_V2.renderHomeAffiche) window.LFLD_V2.renderHomeAffiche();
@@ -719,12 +843,9 @@
       var m2 = t.playoff && Array.isArray(t.playoff.matches) && t.playoff.matches.some(function(m) { return m && m.scorers && m.scorers.trim().length > 5; });
       return m1 || m2;
     }
-    function hasAssistsData(t) {
-      if (!t || !t.matches) return false;
-      if (t.rosters && Object.keys(t.rosters).length) return true;
-      return t.matches.some(function(m) { return (m.events || []).some(function(e) { return e.type === 'goal' && e.assist; }); });
-    }
+    function hasAssistsData(t) { return true; }
     function hasAwardsData(t) { return !!(t && t.awards && t.awards.length); }
+    function hasDisciplineData(t) { return hasScorersData(t); }
 
     function updateDynamicTabs() {
       var t = tournamentsData[currentTourneyKey]; if (!t) return;
@@ -733,8 +854,8 @@
         table: { btn: 'tabBtnTable', cnt: 'tab-table', visible: !isCup },
         matches: { btn: 'tabBtnMatches', cnt: 'tab-matches', visible: !isCup },
         scorers: { btn: 'tabBtnScorers', cnt: 'tab-scorers', visible: hasScorersData(t) },
-        assists: { btn: 'tabBtnAssists', cnt: 'tab-assists', visible: !isCup && hasAssistsData(t) },
-        discipline: { btn: 'tabBtnDiscipline', cnt: 'tab-discipline', visible: hasScorersData(t) },
+        assists: { btn: 'tabBtnAssists', cnt: 'tab-assists', visible: !isCup },
+        discipline: { btn: 'tabBtnDiscipline', cnt: 'tab-discipline', visible: hasDisciplineData(t) },
         playoff: { btn: 'tabBtnPlayoff', cnt: 'tab-playoff', visible: !!(t.playoff && t.playoff.matches) },
         media: { btn: 'tabBtnMedia', cnt: 'tab-media', visible: true },
         awards: { btn: 'tabBtnAwards', cnt: 'tab-awards', visible: hasAwardsData(t) }
@@ -765,17 +886,19 @@
     }
 
     function setFavoriteClub(cName) {
-      favoriteClub = cName;
-      try { localStorage.setItem("fav_club", cName); } catch(e) {}
+      favoriteClub = canonicalClub(cName);
+      try { localStorage.setItem("fav_club", favoriteClub); } catch(e) {}
       renderTourney(); renderSidebar();
     }
 
+    /* ⚡ ТУРНИРНАЯ ТАБЛИЦА + БОМБАРДИРЫ С ЭМБЛЕМАМИ */
     function renderTourney() {
       try {
         ensureCurrentTourney();
         var t = tournamentsData[currentTourneyKey]; if (!t) return;
         var data = calculateStandings(currentTourneyKey);
         var html = ""; var total = data.stats.length;
+
         data.stats.forEach(function(team, idx) {
           var isFav = team.name === favoriteClub;
           var rank = idx + 1; var rc = '';
@@ -785,29 +908,48 @@
             else if (rank >= 7) rc = 'rank-relegation';
           }
           var trC = [isFav ? 'fav-row' : '', rc].filter(Boolean).join(' ');
-          html += '<tr class="' + trC + '"><td>' + rank + '</td>';
-          html += '<td class="text-left"><span class="club-link" onclick="openClubCabinet(\'' + escapeAttr(team.name) + '\')">' + getClubLogoHtml(team.name) + ' <strong>' + team.name + '</strong></span> ' + (isFav ? '★' : '') + '</td>';
-          html += '<td>' + team.p + '</td><td>' + team.w + '</td><td>' + team.d + '</td><td>' + team.l + '</td>';
-          html += '<td>' + team.gf + ' - ' + team.ga + '</td><td><strong>' + team.pts + '</strong></td>';
-          html += '<td><button onclick="setFavoriteClub(\'' + escapeAttr(team.name) + '\')">' + (isFav ? 'Выбран' : 'Выбрать') + '</button></td></tr>';
+          var rm = (team.gf || 0) - (team.ga || 0);
+          var rmStr = rm > 0 ? '+' + rm : String(rm);
+          html += '<tr class="' + trC + '">';
+          html += '<td>' + rank + '</td>';
+          html += '<td class="text-left">' +
+            '<span class="club-link" onclick="openClubCabinet(\'' + escapeAttr(team.name) + '\')">' +
+              getClubLogoHtml(team.name) +
+              '<strong class="club-name">' + team.name + '</strong>' +
+            '</span>' + (isFav ? ' ★' : '') +
+          '</td>';
+          html += '<td>' + team.p + '</td>';
+          html += '<td>' + team.w + '</td>';
+          html += '<td>' + team.d + '</td>';
+          html += '<td>' + team.l + '</td>';
+          html += '<td>' + team.gf + ' - ' + team.ga + '</td>';
+          html += '<td>' + rmStr + '</td>';
+          html += '<td><strong>' + team.pts + '</strong></td>';
+          html += '<td><button onclick="setFavoriteClub(\'' + escapeAttr(team.name) + '\')">' + (isFav ? 'Выбран' : 'Выбрать') + '</button></td>';
+          html += '</tr>';
         });
+
         var tb = document.getElementById('tableBody');
-        if (tb) tb.innerHTML = html || '<tr><td colspan="9" style="text-align:center;">Нет команд</td></tr>';
+        if (tb) tb.innerHTML = html || '<tr><td colspan="10" style="text-align:center;">Нет команд</td></tr>';
         renderRoundTabs();
         renderCalendar(); renderAssists(); renderDiscipline(); renderPlayoff();
+
+        /* ⚡ БОМБАРДИРЫ — с эмблемами команд */
         var sHtml = "";
         data.players.sort(function(a, b) { return b.goals - a.goals; });
         data.players.slice(0, 40).forEach(function(p, idx) {
-          sHtml += '<tr class="pointer" onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(p.club) + '\')">';
+          var club = canonicalClub(p.club);
+          sHtml += '<tr class="pointer" onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(club) + '\')">';
           sHtml += '<td>' + (idx + 1) + '</td>';
-          sHtml += '<td class="text-left"><strong>' + p.name + '</strong></td>';
-          sHtml += '<td class="text-left"><span class="club-link" onclick="event.stopPropagation(); openClubCabinet(\'' + escapeAttr(p.club) + '\')">' + p.club + '</span></td>';
+          sHtml += '<td class="text-left">' +
+            '<span class="assist-table-row-club">' + getClubLogoMini(club) + '<strong>' + p.name + '</strong></span>' +
+          '</td>';
+          sHtml += '<td class="text-left"><span class="club-link" onclick="event.stopPropagation(); openClubCabinet(\'' + escapeAttr(club) + '\')">' + club + '</span></td>';
           sHtml += '<td class="goals-cell">' + p.goals + '</td>';
-          sHtml += '<td class="yellow-cell">' + p.yellowCards + '</td>';
-          sHtml += '<td class="red-cell">' + p.redCards + '</td></tr>';
+          sHtml += '</tr>';
         });
         var sb = document.getElementById('scorersBody');
-        if (sb) sb.innerHTML = sHtml || '<tr><td colspan="6" style="text-align:center;">Пока нет данных</td></tr>';
+        if (sb) sb.innerHTML = sHtml || '<tr><td colspan="4" style="text-align:center;">Пока нет данных</td></tr>';
         renderAwards();
       } catch(e) { console.error(e); }
     }
@@ -829,6 +971,8 @@
       renderRoundContent();
     }
     window.selectRoundTour = function(tour) { selectedTour = (selectedTour === tour) ? null : tour; renderRoundTabs(); };
+
+    /* ⚡ КОМПАКТНАЯ СЕТКА МАТЧЕЙ ТУРА */
     function renderRoundContent() {
       var contentEl = document.getElementById('tableRoundContent'); if (!contentEl) return;
       var t = tournamentsData[currentTourneyKey];
@@ -837,7 +981,7 @@
       if (!matches.length) { contentEl.innerHTML = ''; return; }
       document.getElementById('fullTable').style.display = 'none';
       var html = '<h3 style="color:#f1f5f9;font-size:13px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">Матчи тура: ' + selectedTour + '</h3>';
-      html += '<div class="lfld-matches-list" style="margin-bottom:20px;">';
+      html += '<div class="matches-grid" style="margin-bottom:20px;">';
       matches.forEach(function(m) {
         var idx = t.matches.indexOf(m);
         var scorers = parseCardScorers(m.scorers || '', m.t1, m.t2);
@@ -850,25 +994,36 @@
     }
 
     function parseCardScorers(scorersStr, team1, team2) {
-      var result = {}; result[team1] = { goals: [], yellow: [], red: [] }; result[team2] = { goals: [], yellow: [], red: [] };
-      if (!scorersStr || !team1 || !team2) return result;
+      var t1c = canonicalClub(team1);
+      var t2c = canonicalClub(team2);
+      var result = {};
+      result[t1c] = { goals: [], yellow: [], red: [] };
+      result[t2c] = { goals: [], yellow: [], red: [] };
+      if (!scorersStr || !t1c || !t2c) return result;
+
       scorersStr.split(';').forEach(function(part) {
         part = part.trim(); if (!part) return;
         var sp = part.split(':'); if (sp.length < 2) return;
-        var club = sp[0].trim();
-        if (club !== team1 && club !== team2) return;
+        var club = canonicalClub(sp[0].trim());
+        if (club !== t1c && club !== t2c) return;
         var rest = sp.slice(1).join(':');
         var redPart = '', yellowPart = '';
         var k = rest.indexOf('КК:'); if (k !== -1) { redPart = rest.slice(k + 3); rest = rest.slice(0, k); }
         var y = rest.indexOf('ЖК:'); if (y !== -1) { yellowPart = rest.slice(y + 3); rest = rest.slice(0, y); }
+
         rest.split(',').forEach(function(token) {
           token = token.trim().replace(/[\s,]+$/, ''); if (!token) return;
           if (/автогол|\(аг\)|техническ/i.test(token)) return;
           var cnt = 1; var mm = token.match(/\((\d+)\)/);
           if (mm) { cnt = parseInt(mm[1]) || 1; token = token.replace(/\((\d+)\)/, '').trim(); }
-          if (token.indexOf('/') !== -1) token = token.split('/')[0].trim();
+          var assist = '';
+          if (token.indexOf('/') !== -1) {
+            var pp = token.split('/');
+            token = pp[0].trim();
+            assist = (pp[1] || '').trim();
+          }
           var name = cleanName(token); if (!name) return;
-          result[club].goals.push({ name: name, count: cnt });
+          result[club].goals.push({ name: name, count: cnt, assist: assist });
         });
         yellowPart.split(',').forEach(function(t) { t = t.trim(); if (!t) return; var n = cleanName(t); if (n) result[club].yellow.push(n); });
         redPart.split(',').forEach(function(t) { t = t.trim(); if (!t) return; var n = cleanName(t); if (n) result[club].red.push(n); });
@@ -877,10 +1032,26 @@
     }
 
     function renderTeamEventsColumn(teamName, side, club) {
+      var clubC = canonicalClub(club);
       var html = '';
-      (side.goals || []).forEach(function(g) { html += '<div class="lfld-card-goal lfld-card-goal-pure pointer" onclick="event.stopPropagation(); openPlayerModal(\'' + escapeAttr(g.name) + '\',\'' + escapeAttr(club) + '\')">⚽ ' + g.name + (g.count > 1 ? ' (' + g.count + ')' : '') + '</div>'; });
-      (side.yellow || []).forEach(function(n) { html += '<div class="lfld-card-goal lfld-card-card-yellow pointer" onclick="event.stopPropagation(); openPlayerModal(\'' + escapeAttr(n) + '\',\'' + escapeAttr(club) + '\')">🟨 ' + n + '</div>'; });
-      (side.red || []).forEach(function(n) { html += '<div class="lfld-card-goal lfld-card-card-red pointer" onclick="event.stopPropagation(); openPlayerModal(\'' + escapeAttr(n) + '\',\'' + escapeAttr(club) + '\')">🟥 ' + n + '</div>'; });
+      (side.goals || []).forEach(function(g) {
+        var assistHtml = '';
+        if (g.assist) {
+          assistHtml = ' <span class="lfld-card-goal-assist">' + g.assist + '</span>';
+        }
+        html += '<div class="lfld-card-goal lfld-card-goal-pure pointer" ' +
+          'onclick="event.stopPropagation(); openPlayerModal(\'' + escapeAttr(g.name) + '\',\'' + escapeAttr(clubC) + '\')">' +
+          '⚽ ' + g.name + (g.count > 1 ? ' (' + g.count + ')' : '') + assistHtml +
+        '</div>';
+      });
+      (side.yellow || []).forEach(function(n) {
+        html += '<div class="lfld-card-goal lfld-card-card-yellow pointer" ' +
+          'onclick="event.stopPropagation(); openPlayerModal(\'' + escapeAttr(n) + '\',\'' + escapeAttr(clubC) + '\')">🟨 ' + n + '</div>';
+      });
+      (side.red || []).forEach(function(n) {
+        html += '<div class="lfld-card-goal lfld-card-card-red pointer" ' +
+          'onclick="event.stopPropagation(); openPlayerModal(\'' + escapeAttr(n) + '\',\'' + escapeAttr(clubC) + '\')">🟥 ' + n + '</div>';
+      });
       return html || '<div class="lfld-card-goal-empty">—</div>';
     }
 
@@ -897,8 +1068,8 @@
       var actionsHtml = matchData.actionsHtml || '';
       var expandable = !!matchData.expandable;
       var cardId = matchData.cardId || '';
-      var t1S = scorers[t1] || { goals: [], yellow: [], red: [] };
-      var t2S = scorers[t2] || { goals: [], yellow: [], red: [] };
+      var t1S = scorers[t1] || scorers[canonicalClub(t1)] || { goals: [], yellow: [], red: [] };
+      var t2S = scorers[t2] || scorers[canonicalClub(t2)] || { goals: [], yellow: [], red: [] };
       var w1 = played && s1 > s2, w2 = played && s2 > s1;
       var scoreHtml;
       if (editable) {
@@ -931,6 +1102,7 @@
       return html;
     }
 
+    /* ⚡ КАЛЕНДАРЬ — по турам, но с компактной сеткой */
     function renderCalendar() {
       var t = tournamentsData[currentTourneyKey]; if (!t) return;
       var c = document.getElementById('calendarContainer'); if (!c) return;
@@ -946,7 +1118,9 @@
       if (!order.length) { c.innerHTML = '<p style="color:#94a3b8;">Матчей пока нет.</p>'; return; }
       var html = '';
       order.forEach(function(tour) {
-        html += '<div class="calendar-tour"><div class="calendar-tour-title">' + tour + '</div><div class="lfld-matches-list">';
+        html += '<div class="calendar-tour"><div class="calendar-tour-title">' + tour + '</div>';
+        /* ⚡ Сетка карточек */
+        html += '<div class="matches-grid">';
         g[tour].forEach(function(m) {
           var idx = t.matches.indexOf(m);
           var ref = currentTourneyKey + '|' + idx;
@@ -999,11 +1173,22 @@
         var status = m.status || (played ? 'finished' : 'upcoming');
         var label = { upcoming: 'ПРЕДСТОЯЩИЙ МАТЧ', live: 'ПРЯМОЙ ЭФИР', finished: 'ФИНАЛЬНЫЙ СЧЁТ', postponed: 'ОТЛОЖЕН', cancelled: 'ОТМЕНЁН' }[status] || 'МАТЧ';
         var parsed = parseCardScorers(m.scorers || '', m.t1, m.t2);
-        var t1S = parsed[m.t1] || { goals: [], yellow: [], red: [] };
-        var t2S = parsed[m.t2] || { goals: [], yellow: [], red: [] };
+        var t1C = canonicalClub(m.t1);
+        var t2C = canonicalClub(m.t2);
+        var t1S = parsed[t1C] || { goals: [], yellow: [], red: [] };
+        var t2S = parsed[t2C] || { goals: [], yellow: [], red: [] };
         function side(club, s) {
           var h = '';
-          if (s.goals.length) { h += '<div class="poster-col-title">⚽ АВТОРЫ ГОЛОВ</div>'; s.goals.forEach(function(g) { h += '<div class="poster-goal-row pointer" onclick="openPlayerModal(\'' + escapeAttr(g.name) + '\',\'' + escapeAttr(club) + '\')">' + g.name + (g.count > 1 ? ' <span class="poster-goal-cnt">(' + g.count + ')</span>' : '') + '</div>'; }); }
+          if (s.goals.length) {
+            h += '<div class="poster-col-title">⚽ АВТОРЫ ГОЛОВ</div>';
+            s.goals.forEach(function(g) {
+              var assistTxt = g.assist ? ' <span class="poster-goal-cnt">(' + g.assist + ')</span>' : '';
+              h += '<div class="poster-goal-row pointer" onclick="openPlayerModal(\'' + escapeAttr(g.name) + '\',\'' + escapeAttr(club) + '\')">' +
+                g.name + (g.count > 1 ? ' <span class="poster-goal-cnt">(' + g.count + ')</span>' : '') +
+                assistTxt +
+              '</div>';
+            });
+          }
           if (s.yellow.length) { h += '<div class="poster-col-title poster-col-title-yellow" style="margin-top:8px;">🟨 ЖЁЛТЫЕ</div>'; s.yellow.forEach(function(n) { h += '<div class="poster-card-row poster-card-yellow pointer" onclick="openPlayerModal(\'' + escapeAttr(n) + '\',\'' + escapeAttr(club) + '\')">' + n + '</div>'; }); }
           if (s.red.length) { h += '<div class="poster-col-title poster-col-title-red" style="margin-top:8px;">🟥 КРАСНЫЕ</div>'; s.red.forEach(function(n) { h += '<div class="poster-card-row poster-card-red pointer" onclick="openPlayerModal(\'' + escapeAttr(n) + '\',\'' + escapeAttr(club) + '\')">' + n + '</div>'; }); }
           return h || '<div class="poster-nodata" style="margin:0;">Нет событий</div>';
@@ -1014,12 +1199,12 @@
         html += '<div class="poster-status poster-status-' + status + '">' + label + '</div>';
         if (m.date) html += '<div class="poster-date">' + m.date + (m.stadium ? ' • ' + m.stadium : '') + '</div>';
         html += '</div>';
-        html += '<div class="poster-pill"><div class="poster-team">' + getClubLogoHtml(m.t1, true) + '<div class="poster-team-name">' + m.t1 + '</div></div><div class="poster-score">' + (played ? (m.s1 + ' : ' + m.s2) : 'VS') + '</div><div class="poster-team">' + getClubLogoHtml(m.t2, true) + '<div class="poster-team-name">' + m.t2 + '</div></div></div>';
+        html += '<div class="poster-pill"><div class="poster-team">' + getClubLogoHtml(t1C, true) + '<div class="poster-team-name">' + t1C + '</div></div><div class="poster-score">' + (played ? (m.s1 + ' : ' + m.s2) : 'VS') + '</div><div class="poster-team">' + getClubLogoHtml(t2C, true) + '<div class="poster-team-name">' + t2C + '</div></div></div>';
         var hasAny = t1S.goals.length || t1S.yellow.length || t1S.red.length || t2S.goals.length || t2S.yellow.length || t2S.red.length;
         if (hasAny) {
           html += '<div class="poster-stats">';
-          html += '<div class="poster-col"><div class="poster-col-club">' + m.t1 + ' (ХОЗЯЕВА)</div>' + side(m.t1, t1S) + '</div>';
-          html += '<div class="poster-col"><div class="poster-col-club">' + m.t2 + ' (ГОСТИ)</div>' + side(m.t2, t2S) + '</div>';
+          html += '<div class="poster-col"><div class="poster-col-club">' + t1C + ' (ХОЗЯЕВА)</div>' + side(t1C, t1S) + '</div>';
+          html += '<div class="poster-col"><div class="poster-col-club">' + t2C + ' (ГОСТИ)</div>' + side(t2C, t2S) + '</div>';
           html += '</div>';
         } else if (played) html += '<div class="poster-nodata">Протокол без детализации</div>';
         html += '<div class="poster-footer">' + VK_COMMUNITY_URL + '</div></div>';
@@ -1131,14 +1316,64 @@
     window.addEventListener('resize', function() { var tab = document.getElementById('tab-playoff'); if (tab && tab.style.display === 'block') setTimeout(drawBracketLines, 50); });
 
     function renderAssists() {
-      var list = getAssists(currentTourneyKey);
       var body = document.getElementById('assistsBody'); if (!body) return;
-      var html = '';
-      list.slice(0, 30).forEach(function(p, idx) {
-        html += '<tr class="pointer" onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(p.club) + '\')"><td>' + (idx + 1) + '</td><td class="text-left"><strong>' + p.name + '</strong></td><td class="text-left"><span class="club-link" onclick="event.stopPropagation(); openClubCabinet(\'' + escapeAttr(p.club) + '\')">' + p.club + '</span></td><td class="assist-cell">' + p.assists + '</td></tr>';
+      var tk = currentTourneyKey;
+      var masterKey = { '5x5': 'tournament_5x5', '7x7': 'tournament_7x7',
+                        'night_league_8x8': 'tournament_night', 'cup_5x5': 'cup_5x5' }[tk];
+
+      var list = [];
+      var M = window.LFLD_MASTER_DB;
+      if (M && masterKey && M[masterKey]) {
+        var mt = M[masterKey];
+        if (masterKey === 'cup_5x5' && Array.isArray(mt.players)) {
+          mt.players.forEach(function(p) {
+            if ((p.a || 0) > 0) list.push({ name: p.name, club: p.team, assists: p.a, m: p.m || 0 });
+          });
+        } else if (mt.teams) {
+          Object.keys(mt.teams).forEach(function(club) {
+            (mt.teams[club] || []).forEach(function(p) {
+              if ((p.a || 0) > 0) list.push({ name: p.name, club: club, assists: p.a, m: p.m || 0 });
+            });
+          });
+        }
+      }
+
+      if (!list.length) {
+        list = getAssists(tk);
+        var mGames = {};
+        if (M && masterKey && M[masterKey] && M[masterKey].teams) {
+          Object.keys(M[masterKey].teams).forEach(function(club) {
+            (M[masterKey].teams[club] || []).forEach(function(p) {
+              if (!p.name) return;
+              mGames[p.name.toLowerCase().trim()] = p.m || 0;
+            });
+          });
+        }
+        list = list.map(function(p) {
+          var k = (p.name || '').toLowerCase().trim();
+          return Object.assign({}, p, { m: mGames[k] || p.m || 0 });
+        });
+      }
+
+      list.sort(function(a, b) {
+        if (b.assists !== a.assists) return b.assists - a.assists;
+        return (a.m || 0) - (b.m || 0);
       });
-      body.innerHTML = html || '<tr><td colspan="4" style="text-align:center;">Пока нет данных</td></tr>';
+
+      var html = '';
+      list.slice(0, 50).forEach(function(p, idx) {
+        var club = canonicalClub(p.club);
+        html += '<tr class="pointer" onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(club) + '\')">';
+        html += '<td>' + (idx + 1) + '</td>';
+        html += '<td class="text-left"><span class="assist-table-row-club">' + getClubLogoMini(club) + '<strong>' + p.name + '</strong></span></td>';
+        html += '<td class="text-left"><span class="club-link" onclick="event.stopPropagation(); openClubCabinet(\'' + escapeAttr(club) + '\')">' + club + '</span></td>';
+        html += '<td>' + (p.m || 0) + '</td>';
+        html += '<td class="assist-cell">' + p.assists + '</td>';
+        html += '</tr>';
+      });
+      body.innerHTML = html || '<tr><td colspan="5" style="text-align:center;">Пока нет данных</td></tr>';
     }
+
     function renderDiscipline() {
       var data = calculateStandings(currentTourneyKey);
       var body = document.getElementById('disciplineBody'); if (!body) return;
@@ -1147,7 +1382,13 @@
       if (!list.length) { body.innerHTML = '<tr><td colspan="5" style="text-align:center;">Нет дисциплинарных нарушений</td></tr>'; return; }
       var html = '';
       list.forEach(function(p, idx) {
-        html += '<tr class="pointer" onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(p.club) + '\')"><td>' + (idx + 1) + '</td><td class="text-left"><strong>' + p.name + '</strong></td><td class="text-left"><span class="club-link" onclick="event.stopPropagation(); openClubCabinet(\'' + escapeAttr(p.club) + '\')">' + p.club + '</span></td><td class="yellow-cell">' + p.yellowCards + '</td><td class="red-cell">' + p.redCards + '</td></tr>';
+        var club = canonicalClub(p.club);
+        html += '<tr class="pointer" onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(club) + '\')">' +
+          '<td>' + (idx + 1) + '</td>' +
+          '<td class="text-left"><span class="assist-table-row-club">' + getClubLogoMini(club) + '<strong>' + p.name + '</strong></span></td>' +
+          '<td class="text-left"><span class="club-link" onclick="event.stopPropagation(); openClubCabinet(\'' + escapeAttr(club) + '\')">' + club + '</span></td>' +
+          '<td class="yellow-cell">' + p.yellowCards + '</td>' +
+          '<td class="red-cell">' + p.redCards + '</td></tr>';
       });
       body.innerHTML = html;
     }
@@ -1196,6 +1437,7 @@
     function openClubCabinet(clubName, tourneyKey) {
       try {
         if (!clubName) return;
+        clubName = canonicalClub(clubName);
         showView('club');
         document.getElementById('clubHeroName').innerText = "ФК «" + clubName + "»";
         document.getElementById('clubLogoHero').innerHTML = getClubLogoHtml(clubName, true);
@@ -1212,7 +1454,7 @@
         Object.keys(tournamentsData).forEach(function(k) { var t = tournamentsData[k]; if (t && t.teams && t.teams.indexOf(clubName) !== -1) played.push(k); });
         if (!played.length) {
           document.getElementById('clubTourneyTabs').innerHTML = '';
-          document.getElementById('clubRosterBody').innerHTML = '<tr><td colspan="8" style="text-align:center;">Клуб не участвует</td></tr>';
+          document.getElementById('clubRosterBody').innerHTML = '<tr><td colspan="6" style="text-align:center;">Клуб не участвует</td></tr>';
           document.getElementById('clubMatchesGrid').innerHTML = '';
           document.getElementById('clubStatsBar').innerHTML = '';
           renderClubPhotos(clubName, null); return;
@@ -1249,15 +1491,13 @@
             rHtml += '<td>' + (p.m || 0) + '</td>';
             rHtml += '<td class="goals-cell">' + (p.g || 0) + '</td>';
             rHtml += '<td class="assist-cell">' + (p.a || 0) + '</td>';
-            rHtml += '<td class="yellow-cell">' + (p.yc || 0) + '</td>';
-            rHtml += '<td class="red-cell">' + (p.rc || 0) + '</td>';
             rHtml += '<td><button onclick="event.stopPropagation(); openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(clubName) + '\')">Досье</button></td></tr>';
           });
         } else {
           var roster = res.players.filter(function(x){ return x.club === clubName; }).sort(function(a, b) { return b.goals - a.goals; });
-          roster.forEach(function(p) { rHtml += '<tr class="pointer" onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(clubName) + '\')"><td class="text-left"><strong>' + p.name + '</strong></td><td><span class="pos-badge pos-uni">УНИ</span></td><td>' + (p.matches ? p.matches.length : 0) + '</td><td class="goals-cell">' + (p.goals || 0) + '</td><td class="assist-cell">' + (p.assists || 0) + '</td><td class="yellow-cell">' + (p.yellowCards || 0) + '</td><td class="red-cell">' + (p.redCards || 0) + '</td><td><button>Досье</button></td></tr>'; });
+          roster.forEach(function(p) { rHtml += '<tr class="pointer" onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(clubName) + '\')"><td class="text-left"><strong>' + p.name + '</strong></td><td><span class="pos-badge pos-uni">УНИ</span></td><td>' + (p.matches ? p.matches.length : 0) + '</td><td class="goals-cell">' + (p.goals || 0) + '</td><td class="assist-cell">' + (p.assists || 0) + '</td><td><button>Досье</button></td></tr>'; });
         }
-        document.getElementById('clubRosterBody').innerHTML = rHtml || '<tr><td colspan="8" style="text-align:center;">Пока нет данных</td></tr>';
+        document.getElementById('clubRosterBody').innerHTML = rHtml || '<tr><td colspan="6" style="text-align:center;">Пока нет данных</td></tr>';
 
         var cM = (tournamentsData[activeKey].matches || []).filter(function(m) { return m.t1 === clubName || m.t2 === clubName; });
         var cmHtml = '';
@@ -1358,7 +1598,20 @@
       try {
         renderTourneyButtons();
         var cg = document.getElementById('sidebarClubsList');
-        if (cg) { var html = ''; clubsData.forEach(function(c) { var sn = escapeAttr(c.name); html += '<div class="club-mini' + (c.name === favoriteClub ? ' active' : '') + '" title="' + c.name.replace(/"/g, '&quot;') + '" onclick="openClubCabinet(\'' + sn + '\')">' + getClubLogoHtml(c.name) + '</div>'; }); cg.innerHTML = html; }
+        if (cg) {
+          var html = '';
+          clubsData.forEach(function(c) {
+            var sn = escapeAttr(c.name);
+            html += '<div class="club-mini' + (c.name === favoriteClub ? ' active' : '') +
+              '" title="' + c.name.replace(/"/g, '&quot;') + '"' +
+              ' onclick="openClubCabinet(\'' + sn + '\')">' +
+              '<span class="logo-plashka size-sm">' +
+                '<img src="' + (c.logo || '⚽') + '" alt="" loading="lazy">' +
+              '</span>' +
+            '</div>';
+          });
+          cg.innerHTML = html;
+        }
         var fe = document.getElementById('favClubSelect');
         if (fe) fe.innerHTML = '<option value="">Мой клуб</option>' + clubsData.map(function(c) { return '<option value="' + c.name.replace(/"/g, '&quot;') + '" ' + (c.name === favoriteClub ? 'selected' : '') + '>' + c.name + '</option>'; }).join('');
       } catch(e) { console.error(e); }
@@ -1427,6 +1680,111 @@
 
     try { document.getElementById('fedLogoDisplay').innerHTML = getFedLogoHtml(); } catch(e) {}
     try { ensureCurrentTourney(); renderSidebar(); initHeroCarousel(); showWelcome(); } catch(e) { console.error('Init:', e); }
+
+    var BG_KEY = 'lfld_site_background';
+    function applySiteBackground(url) {
+      var layer = document.getElementById('site-bg-layer');
+      if (!layer) return;
+      if (url) {
+        layer.style.backgroundImage = 'url("' + url + '")';
+        layer.style.opacity = '0.25';
+        document.body.classList.add('has-custom-bg');
+      } else {
+        layer.style.backgroundImage = '';
+        layer.style.opacity = '0';
+        document.body.classList.remove('has-custom-bg');
+      }
+    }
+    function loadSiteBackground() {
+      try { var saved = localStorage.getItem(BG_KEY); if (saved) applySiteBackground(saved); } catch(e) {}
+    }
+    function setSiteBackground(url) {
+      try { if (url) localStorage.setItem(BG_KEY, url); else localStorage.removeItem(BG_KEY); } catch(e) {}
+      applySiteBackground(url);
+    }
+    function clearSiteBackground() {
+      try { localStorage.removeItem(BG_KEY); } catch(e) {}
+      applySiteBackground('');
+    }
+    function renderSiteBgAdmin() {
+      var wrap = document.getElementById('siteBgAdminWrap');
+      if (!wrap) return;
+      var current = '';
+      try { current = localStorage.getItem(BG_KEY) || ''; } catch(e) {}
+
+      wrap.innerHTML =
+        '<div class="admin-extras-section">' +
+          '<h3>🎨 Фоновое изображение сайта</h3>' +
+          '<p>Установите фон для всего сайта. Изображение сохраняется в localStorage (25% прозрачности).</p>' +
+          '<div class="form-row">' +
+            '<div class="form-group"><label>Загрузить файл</label><input type="file" id="bgFileInput" accept="image/*"></div>' +
+            '<div class="form-group"><label>Или прямая ссылка</label><input type="url" id="bgUrlInput" placeholder="https://..." value="' + (current && current.indexOf('data:') !== 0 ? current.replace(/"/g, '&quot;') : '') + '"></div>' +
+          '</div>' +
+          '<div id="bgPreview" style="margin:10px 0;"></div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">' +
+            '<button type="button" class="btn-success" id="bgApplyBtn">Применить фон</button>' +
+            '<button type="button" class="btn-danger" id="bgResetBtn">Сбросить фон</button>' +
+          '</div>' +
+          '<div class="ai-status" id="bgStatus"></div>' +
+        '</div>';
+
+      var preview = document.getElementById('bgPreview');
+      function renderPreview(url) {
+        if (!preview) return;
+        preview.innerHTML = url
+          ? '<div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Текущий фон:</div>' +
+            '<img src="' + url + '" style="max-width:220px;max-height:120px;border-radius:8px;border:1px solid var(--border-mid);display:block;">'
+          : '<span style="color:#94a3b8;font-size:12px;font-style:italic;">Фон не установлен</span>';
+      }
+      renderPreview(current);
+
+      var fileInp = document.getElementById('bgFileInput');
+      var urlInp = document.getElementById('bgUrlInput');
+      var previewUrl = current;
+
+      if (fileInp) fileInp.onchange = function () {
+        var f = this.files && this.files[0];
+        if (!f) return;
+        var reader = new FileReader();
+        reader.onload = function (e) { previewUrl = e.target.result; renderPreview(previewUrl); if (urlInp) urlInp.value = ''; };
+        reader.readAsDataURL(f);
+      };
+      if (urlInp) urlInp.oninput = function () {
+        if (this.value.trim()) { previewUrl = this.value.trim(); renderPreview(previewUrl); }
+      };
+
+      var applyBtn = document.getElementById('bgApplyBtn');
+      if (applyBtn) applyBtn.onclick = function () {
+        var url = previewUrl;
+        if (urlInp && urlInp.value.trim()) url = urlInp.value.trim();
+        if (!url) {
+          var st = document.getElementById('bgStatus');
+          if (st) { st.className = 'ai-status show err'; st.innerText = 'Выберите файл или укажите ссылку'; }
+          return;
+        }
+        setSiteBackground(url);
+        var st = document.getElementById('bgStatus');
+        if (st) { st.className = 'ai-status show ok'; st.innerText = 'Фон применён и сохранён'; }
+      };
+      var resetBtn = document.getElementById('bgResetBtn');
+      if (resetBtn) resetBtn.onclick = function () {
+        if (!confirm('Сбросить фоновое изображение?')) return;
+        clearSiteBackground();
+        previewUrl = '';
+        renderPreview('');
+        if (fileInp) fileInp.value = '';
+        if (urlInp) urlInp.value = '';
+        var st = document.getElementById('bgStatus');
+        if (st) { st.className = 'ai-status show ok'; st.innerText = 'Фон сброшен'; }
+      };
+    }
+    loadSiteBackground();
+    var _prevAdminOpen = window.onAdminPanelOpened;
+    window.onAdminPanelOpened = function () {
+      if (typeof _prevAdminOpen === 'function') { try { _prevAdminOpen(); } catch(e) {} }
+      try { renderSiteBgAdmin(); } catch(e) { console.error('[bg admin]', e); }
+    };
+    window.siteBackground = { apply: applySiteBackground, set: setSiteBackground, clear: clearSiteBackground, load: loadSiteBackground };
 
     window.clubsData = clubsData;
     window.tournamentsData = tournamentsData;

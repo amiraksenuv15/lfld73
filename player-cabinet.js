@@ -1,7 +1,11 @@
 /* ============================================================
    player-cabinet.js — модальное окно досье игрока
-   Показывает мульти-клубную карьеру (напр. Комета + Химмаш),
-   награды и полную статистику.
+   
+   v2.0 — УБРАНЫ ЖК/КК из публичного отображения:
+   - Сводная статистика: только Матчи / Голы / Ассисты
+   - Таблица карьеры: без колонок ЖК и КК
+   - Все данные карточек по-прежнему в database.js,
+     но в интерфейсе игрока не показываются.
    ============================================================ */
 (function () {
   'use strict';
@@ -22,7 +26,7 @@
   function norm(s) { return String(s || '').toLowerCase().replace(/ё/g, 'е').trim(); }
   function lastName(name) { return norm(name).split(/\s+/)[0]; }
 
-  /* ---------- Карта турниров → человеко-понятный ярлык ---------- */
+  /* ---------- Карта турниров ---------- */
   var TOURNEY_LABELS = {
     'tournament_5x5':   'Первенство 5х5 (Лето 2026)',
     'tournament_7x7':   'Первенство 7х7 (Весна 2026)',
@@ -44,9 +48,6 @@
       var t = M[mk];
       if (!t || !t.teams) return;
       Object.keys(t.teams).forEach(function (club) {
-        if (clubHint && club !== clubHint) {
-          // всё равно проверяем — вдруг это второй клуб игрока
-        }
         (t.teams[club] || []).forEach(function (p) {
           if (lastName(p.name) !== key) return;
           out.push({
@@ -55,8 +56,6 @@
             matches: p.m || 0,
             goals: p.g || 0,
             assists: p.a || 0,
-            yellow: p.yc || 0,
-            red: p.rc || 0,
             isCup: false
           });
         });
@@ -73,8 +72,6 @@
           matches: p.m || 0,
           goals: p.g || 0,
           assists: 0,
-          yellow: p.yc || 0,
-          red: p.rc || 0,
           isCup: true,
           award: p.award || '',
           pastClubs: p.pastClubs || [],
@@ -86,16 +83,14 @@
     return out;
   }
 
-  /* ---------- Награды (авто + ручные) ---------- */
+  /* ---------- Награды ---------- */
   function buildAwards(playerName, clubHint, careerFromMaster) {
     var awards = [];
 
-    // 1) Авто из карьеры
     careerFromMaster.forEach(function (c) {
       if (c.award && awards.indexOf(c.award) === -1) awards.push(c.award);
     });
 
-    // 2) Ручные из playerProfiles
     var key = lastName(playerName);
     if (window.teamPlayerProfiles) {
       Object.keys(window.teamPlayerProfiles).forEach(function (k) {
@@ -107,7 +102,6 @@
       });
     }
 
-    // 3) Из database.js
     if (window.database && window.database.findPlayersByName) {
       var found = window.database.findPlayersByName(playerName, clubHint);
       if (found && found.length && found[0].awards) {
@@ -124,7 +118,6 @@
   function openPlayerCabinet(playerIdOrName, clubHint) {
     var player = null;
 
-    // Пытаемся достать из database.js (полный профиль)
     if (window.database) {
       if (window.database.getPlayer && window.database.getPlayer(playerIdOrName)) {
         player = window.database.getPlayer(playerIdOrName);
@@ -134,7 +127,6 @@
       }
     }
 
-    // Fallback: эфемерный профиль
     if (!player) {
       player = {
         id: null,
@@ -146,48 +138,39 @@
         clubs: clubHint ? [clubHint] : [],
         tournaments: [],
         awards: [],
-        stats: { matches: 0, goals: 0, assists: 0, yellow: 0, red: 0 }
+        stats: { matches: 0, goals: 0, assists: 0 }
       };
     }
 
     var fullName = [player.lastName, player.firstName, player.middleName].filter(Boolean).join(' ') || 'Игрок';
 
-    // Собираем карьеру из мастер-БД (наиболее точный источник)
     var career = buildCareerFromMaster(playerIdOrName, clubHint);
 
-    // Суммируем статистику
-    var totalStats = { matches: 0, goals: 0, assists: 0, yellow: 0, red: 0 };
+    var totalStats = { matches: 0, goals: 0, assists: 0 };
     career.forEach(function (c) {
       totalStats.matches += c.matches;
       totalStats.goals += c.goals;
       totalStats.assists += c.assists;
-      totalStats.yellow += c.yellow;
-      totalStats.red += c.red;
     });
 
-    // Если в мастер-БД ничего нет — берём из database.js
     if (!career.length && player.stats) {
       totalStats = {
         matches: player.stats.matches || 0,
         goals: player.stats.goals || 0,
-        assists: player.stats.assists || 0,
-        yellow: player.stats.yellow || 0,
-        red: player.stats.red || 0
+        assists: player.stats.assists || 0
       };
     }
 
-    // Награды
     var awards = buildAwards(playerIdOrName, clubHint, career);
 
-    // --- Рендер ---
+    /* --- Рендер --- */
     var photoHtml = player.photo
       ? '<img src="' + player.photo + '" alt="" class="pc-photo-img">'
       : '<div class="pc-photo-placeholder"><span>👤</span></div>';
 
-    // Карьера: группируем по клубу, показываем оба клуба если игрок менял
+    /* --- Карьера по клубам --- */
     var careerHtml = '';
     if (career.length) {
-      // Группируем по клубу, оставляя порядок
       var byClub = {};
       var clubOrder = [];
       career.forEach(function (c) {
@@ -200,8 +183,6 @@
           '<th class="text-left">Клуб</th>' +
           '<th class="text-left">Турнир</th>' +
           '<th>М</th><th>Г</th><th>А</th>' +
-          '<th class="yellow-head">ЖК</th>' +
-          '<th class="red-head">КК</th>' +
         '</tr></thead><tbody>';
 
       clubOrder.forEach(function (club) {
@@ -216,14 +197,11 @@
             '<td>' + c.matches + '</td>' +
             '<td class="goals-cell">' + c.goals + '</td>' +
             '<td class="assist-cell">' + c.assists + '</td>' +
-            '<td class="yellow-cell">' + c.yellow + '</td>' +
-            '<td class="red-cell">' + c.red + '</td>' +
             '</tr>';
         });
       });
       careerHtml += '</tbody></table>';
 
-      // Пометка о переходах
       var transfers = [];
       career.forEach(function (c) {
         (c.pastClubs || []).forEach(function (pc) {
@@ -241,14 +219,14 @@
       careerHtml = '<div class="pc-muted">Нет данных о матчах в мастер-БД</div>';
     }
 
-    // Награды
+    /* --- Награды --- */
     var awardsHtml = awards.length
       ? awards.map(function (a) {
           return '<span class="pc-award-badge">🏆 ' + a + '</span>';
         }).join('')
       : '<span class="pc-muted">Пока без награждений</span>';
 
-    // Список клубов (для тега «Карьера»)
+    /* --- Клубы --- */
     var allClubs = {};
     career.forEach(function (c) { allClubs[c.club] = 1; });
     (player.clubs || []).forEach(function (c) { allClubs[c] = 1; });
@@ -256,7 +234,7 @@
       ? Object.keys(allClubs).map(function (c) { return '<span class="pc-club-tag">' + c + '</span>'; }).join('')
       : '<span class="pc-muted">Не играл в турнирах ЛФЛД</span>';
 
-    // Турниры
+    /* --- Турниры --- */
     var tourneys = {};
     career.forEach(function (c) { tourneys[c.tournament] = 1; });
     (player.tournaments || []).forEach(function (tk) { tourneys[tourneyLabel(tk, tk)] = 1; });
@@ -264,6 +242,7 @@
       ? Object.keys(tourneys).map(function (t) { return '<span class="pc-tourney-tag">' + t + '</span>'; }).join('')
       : '<span class="pc-muted">—</span>';
 
+    /* --- Финальный HTML --- */
     var html = '';
     html += '<div class="pc-header">';
     html +=   '<div class="pc-photo">' + photoHtml + '</div>';
@@ -277,13 +256,12 @@
     html +=   '</div>';
     html += '</div>';
 
+    /* ⚡ Сводная статистика — только Матчи / Голы / Ассисты */
     html += '<h4 class="pc-section-title">📊 Сводная статистика</h4>';
-    html += '<div class="pc-stats">';
+    html += '<div class="pc-stats pc-stats-3">';
     html +=   '<div class="pc-stat"><div class="pc-stat-value">' + totalStats.matches + '</div><div class="pc-stat-label">Матчи</div></div>';
     html +=   '<div class="pc-stat"><div class="pc-stat-value">' + totalStats.goals + '</div><div class="pc-stat-label">⚽ Голы</div></div>';
     html +=   '<div class="pc-stat"><div class="pc-stat-value">' + totalStats.assists + '</div><div class="pc-stat-label">👟 Ассисты</div></div>';
-    html +=   '<div class="pc-stat"><div class="pc-stat-value">' + totalStats.yellow + '</div><div class="pc-stat-label">🟨 ЖК</div></div>';
-    html +=   '<div class="pc-stat"><div class="pc-stat-value">' + totalStats.red + '</div><div class="pc-stat-label">🟥 КК</div></div>';
     html += '</div>';
 
     html += '<h4 class="pc-section-title">🏟 Карьера</h4>';
@@ -315,5 +293,5 @@
     openPlayerCabinet(idOrName, clubHint);
   };
 
-  console.log('[player-cabinet] загружен (мульти-клубная карьера)');
+  console.log('[player-cabinet] загружен (без ЖК/КК в публичной части)');
 })();

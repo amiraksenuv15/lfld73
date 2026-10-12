@@ -1,6 +1,6 @@
 /* ============================================================
    database.js — мастер-реестр игроков, заявки, статистика
-   v1.1 — импорт наград (поле award) из обычных турниров
+   v1.2 — унификация клубов (Спринт, МИФИ, СШ Лада)
    ============================================================ */
 (function () {
   'use strict';
@@ -9,14 +9,31 @@
   var MASTER_FLAG = 'ff_master_imported_v3';
 
   var POSITIONS = { 'ВРТ': 1, 'ЗАЩ': 1, 'ПЗ': 1, 'НАП': 1, 'УНИ': 1 };
+
+  /* ⚡ УНИФИКАЦИЯ: все псевдонимы клубов маппятся в канонические имена */
   var CLUB_ALIASES = {
-    'дити нияу мифи': 'МИФИ',
-    'лада': 'СШ Лада',
-    'спринт-кальян': 'Спринт-Кальяри',
-    'спринт-кальяри': 'Спринт-Кальяри',
-    'спринт-кальяри ': 'Спринт-Кальяри',
-    'фк не молодежка': 'ФК НЕ Молодёжка'
+    // Спринт = Спринт-Кальяри = Спринт-Кальян
+    'спринт-кальяри':      'Спринт',
+    'спринт-кальян':       'Спринт',
+    'спринт кальяри':      'Спринт',
+    'спринт-кальяри ':     'Спринт',
+    'sprint-кальяри':      'Спринт',
+    // МИФИ = ДИТИ НИЯУ МИФИ
+    'дити нияу мифи':      'ДИТИ НИЯУ МИФИ',
+    'мифи':                'ДИТИ НИЯУ МИФИ',
+    'мфи':                 'ДИТИ НИЯУ МИФИ',
+    'дити нияу':           'ДИТИ НИЯУ МИФИ',
+    // Лада = СШ Лада = ЛАДА
+    'лада':                'СШ Лада',
+    'сш лада':             'СШ Лада',
+    'шсш лада':            'СШ Лада',
+    // Нефтчи / Нефтчи
+    'нефтчи':              'Нефтчи',
+    // Молодёжка
+    'фк не молодежка':     'ФК НЕ Молодёжка',
+    'фк не молодёжка':     'ФК НЕ Молодёжка'
   };
+
   var TOURNEY_MAP = {
     'tournament_5x5':   '5x5',
     'tournament_7x7':   '7x7',
@@ -176,8 +193,13 @@
         if (/автогол|\(аг\)|техническ/i.test(tok)) return;
         var cnt = 1; var mm = tok.match(/\((\d+)\)/);
         if (mm) { cnt = parseInt(mm[1]) || 1; tok = tok.replace(/\((\d+)\)/, '').trim(); }
-        if (tok.indexOf('/') !== -1) tok = tok.split('/')[0].trim();
-        if (tok) events.push({ name: tok, club: club, type: 'goal', count: cnt });
+        var assist = '';
+        if (tok.indexOf('/') !== -1) {
+          var pp = tok.split('/');
+          tok = pp[0].trim();
+          assist = (pp[1] || '').trim();
+        }
+        if (tok) events.push({ name: tok, club: club, type: 'goal', count: cnt, assist: assist });
       });
       yellowPart.split(',').forEach(function (tok) { tok = tok.trim(); if (tok) events.push({ name: tok, club: club, type: 'yellow', count: 1 }); });
       redPart.split(',').forEach(function (tok) { tok = tok.trim(); if (tok) events.push({ name: tok, club: club, type: 'red', count: 1 }); });
@@ -185,12 +207,25 @@
     return events;
   }
 
+  /* ⚡ Унификация названия клуба */
   function resolveClubName(name) {
     if (!name) return '';
     var clubs = window.clubsData || [];
-    for (var i = 0; i < clubs.length; i++) if (clubs[i].name === name) return clubs[i].name;
+    // 1. Точное совпадение с каноническим именем
+    for (var i = 0; i < clubs.length; i++) {
+      if (clubs[i].name === name) return clubs[i].name;
+    }
+    // 2. Маппинг через алиасы
     var n = normalize(name);
-    if (CLUB_ALIASES[n]) return CLUB_ALIASES[n];
+    if (CLUB_ALIASES[n]) {
+      var target = CLUB_ALIASES[n];
+      // Проверяем что такой клуб есть в clubsData
+      for (var k = 0; k < clubs.length; k++) {
+        if (clubs[k].name === target) return target;
+      }
+      return target;
+    }
+    // 3. Нечёткое совпадение
     var matches = [];
     for (var j = 0; j < clubs.length; j++) {
       var cn = normalize(clubs[j].name); if (!cn) continue;
@@ -223,7 +258,11 @@
           var goals = [], yc = [], rc = [];
           events.forEach(function (e) {
             var cnt = e.count || 1;
-            if (e.type === 'goal') goals.push(e.player + (cnt > 1 ? ' (' + cnt + ')' : ''));
+            if (e.type === 'goal') {
+              var g = e.player + (cnt > 1 ? ' (' + cnt + ')' : '');
+              if (e.assist) g += '/' + e.assist;
+              goals.push(g);
+            }
             else if (e.type === 'yellow_card') yc.push(e.player);
             else if (e.type === 'red_card') rc.push(e.player);
           });
@@ -268,7 +307,6 @@
           if (p.pos && p.pos !== 'УНИ' && player.position === 'УНИ') player.position = p.pos;
           if (p.isCaptain) player.isCaptain = true;
 
-          // ⚡ Награды из мастер-БД (поле award может содержать ';' — разделитель)
           if (p.award) {
             if (!player.awards) player.awards = [];
             String(p.award).split(';').forEach(function (aw) {
@@ -305,14 +343,12 @@
         var club = resolveClubName(p.team);
         var player = ensurePlayer(p.name, club); if (!player) return;
 
-        // ⚡ Карьера (клуб + турнир)
         if (Array.isArray(p.career)) {
           if (!player.career) player.career = [];
           p.career.forEach(function (entry) {
             if (player.career.indexOf(entry) === -1) player.career.push(entry);
           });
         }
-        // ⚡ Награды
         if (Array.isArray(p.awards)) {
           if (!player.awards) player.awards = [];
           p.awards.forEach(function (aw) {
@@ -422,7 +458,8 @@
     saveSymbolicTeam: saveSymbolicTeam,
     getSymbolicTeam: getSymbolicTeam,
     save: save, load: load,
-    normalize: normalize, lastName: lastName, playerKey: playerKey, fullName: fullName
+    normalize: normalize, lastName: lastName, playerKey: playerKey, fullName: fullName,
+    CLUB_ALIASES: CLUB_ALIASES
   };
 
   load();

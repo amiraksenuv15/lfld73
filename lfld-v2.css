@@ -1,38 +1,150 @@
 /* ============================================================
-   lfld-v2.css — дополнения к style.css
-   1) Крупные белые плашки под логотипами клубов
-   2) Досье игрока: карьера + история переходов
-   3) Символическая сборная тура (визуал)
-   4) Конструктор сборной в админке
-   5) Афиша турниров
-   6) Редактор расписания
+   lfld-v2.css — дополнения к style.css (v3.4)
    ============================================================ */
 
 /* ============================================================
-   1. ЛОГОТИПЫ: БЕЛАЯ КРУГЛАЯ ПЛАШКА (крупные эмблемы 85–90%)
-   Tailwind-эквивалент:
-     container → w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white
-                 flex items-center justify-center p-1.5
-                 shadow-lg shrink-0 overflow-hidden
-     img       → w-full h-full object-contain
+   1. ЛОГОТИПЫ — БАЗОВЫЕ ПРАВИЛА (прозрачный фон)
    ============================================================ */
-
 .logo-plashka {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff;
-  border-radius: 50%;
+  background: transparent;
+  border: none;
+  border-radius: 0;
   flex-shrink: 0;
-  overflow: hidden;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35),
-              0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  overflow: visible;
+  box-shadow: none;
   line-height: 0;
   box-sizing: border-box;
   vertical-align: middle;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
 }
 .logo-plashka > img,
 .logo-plashka > span {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  display: block !important;
+  user-select: none;
+  pointer-events: none;
+  border-radius: 0;
+  background: transparent;
+}
+.logo-plashka.size-xs  { width: 24px;  height: 24px;  padding: 0; }
+.logo-plashka.size-sm  { width: 32px;  height: 32px;  padding: 0; }
+.logo-plashka.size-md  { width: 48px;  height: 48px;  padding: 0; }
+.logo-plashka.size-lg  { width: 64px;  height: 64px;  padding: 0; }
+.logo-plashka.size-xl  { width: 80px;  height: 80px;  padding: 0; }
+.logo-plashka.size-2xl { width: 104px; height: 104px; padding: 0; }
+
+/* ============================================================
+   2. СТРОГИЕ РАЗМЕРЫ ЭМБЛЕМ
+   ============================================================ */
+table img,
+table .badge-icon,
+table .logo-plashka,
+table .logo-plashka img {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  object-fit: contain !important;
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+  vertical-align: middle !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 6px 0 0 !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5)) !important;
+}
+table .logo-plashka {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: visible !important;
+  box-shadow: none !important;
+}
+@media (min-width: 640px) {
+  table img,
+  table .badge-icon,
+  table .logo-plashka,
+  table .logo-plashka img {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+  }
+}
+
+.club-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+.club-link strong,
+.club-link .club-name {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  min-width: 0 !important;
+}
+
+.club-mini {
+  width: 100% !important;
+  aspect-ratio: 1 / 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+.club-mini .badge-icon,
+.club-mini img,
+.club-mini span,
+.club-mini .logo-plashka {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  max-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  object-fit: contain !important;
+  padding: 4px !important;
+  box-sizing: border-box !important;
+  background: transparent !important;
+  flex-shrink: 0 !important;
+}
+
+.lfld-card-team-logo {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  flex-shrink: 0 !important;
+}
+.lfld-card-team-logo img,
+.lfld-card-team-logo .logo-plashka,
+.lfld-card-team-logo .logo-plashka img {
   width: 100% !important;
   height: 100% !important;
   max-width: 100% !important;
@@ -41,275 +153,118 @@
   min-height: 0 !important;
   object-fit: contain !important;
   display: block !important;
-  user-select: none;
-  pointer-events: none;
-  border-radius: 0;
-}
-.logo-plashka.size-xs  { width: 24px;  height: 24px;  padding: 2px;  }
-.logo-plashka.size-sm  { width: 32px;  height: 32px;  padding: 2px;  }
-.logo-plashka.size-md  { width: 44px;  height: 44px;  padding: 3px;  }
-.logo-plashka.size-lg  { width: 56px;  height: 56px;  padding: 4px;  }
-.logo-plashka.size-xl  { width: 72px;  height: 72px;  padding: 5px;  }
-.logo-plashka.size-2xl { width: 96px;  height: 96px;  padding: 6px;  }
-
-/* ---------- Карточка матча — крупный кружок ---------- */
-.lfld-card-team-logo {
-  width: 80px !important;
-  height: 80px !important;
-  min-width: 80px !important;
-  max-width: 80px !important;
-  min-height: 80px !important;
-  max-height: 80px !important;
-  padding: 6px !important;
-  background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.1) !important;
-  border-radius: 50% !important;
-  overflow: hidden !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-shrink: 0 !important;
-  box-sizing: border-box !important;
-}
-.lfld-card-team-logo .logo-plashka,
-.lfld-card-team-logo .logo-plashka.size-md,
-.lfld-card-team-logo .logo-plashka.size-lg,
-.lfld-card-team-logo .logo-plashka.size-xl {
-  width: 100% !important;
-  height: 100% !important;
-  min-width: 0 !important; max-width: 100% !important;
-  min-height: 0 !important; max-height: 100% !important;
-  padding: 0 !important; margin: 0 !important;
   background: transparent !important;
-  box-shadow: none !important;
   border-radius: 0 !important;
-  overflow: visible !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-.lfld-card-team-logo img,
-.lfld-card-team-logo span,
-.lfld-card-team-logo .logo-plashka img,
-.lfld-card-team-logo .logo-plashka span {
-  width: 100% !important; height: 100% !important;
-  max-width: 100% !important; max-height: 100% !important;
-  min-width: 0 !important; min-height: 0 !important;
-  object-fit: contain !important;
-  display: block !important;
-  border-radius: 0 !important;
+  padding: 0 !important;
 }
 @media (min-width: 640px) {
   .lfld-card-team-logo {
-    width: 96px !important; height: 96px !important;
-    min-width: 96px !important; max-width: 96px !important;
-    min-height: 96px !important; max-height: 96px !important;
-    padding: 8px !important;
+    width: 40px !important; height: 40px !important;
+    min-width: 40px !important; max-width: 40px !important;
+    min-height: 40px !important; max-height: 40px !important;
   }
 }
 
-/* ---------- Постер / протокол матча ---------- */
-.poster-team .logo-plashka,
-.poster-team .logo-plashka.size-xl,
-.poster-team .logo-plashka.size-lg,
-.poster-team .badge-large {
-  width: 80px !important; height: 80px !important;
-  min-width: 80px !important; max-width: 80px !important;
-  min-height: 80px !important; max-height: 80px !important;
-  padding: 6px !important;
-  background: #ffffff !important;
-  border: none !important;
-  border-radius: 50% !important;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  overflow: hidden !important;
-  flex-shrink: 0 !important;
-  box-sizing: border-box !important;
-}
-.poster-team .logo-plashka img,
-.poster-team .badge-large img,
-.poster-team img {
-  width: 100% !important; height: 100% !important;
-  max-width: 100% !important; max-height: 100% !important;
-  min-width: 0 !important; min-height: 0 !important;
+.home-match-card .hm-team-logo,
+.home-match-card .hm-team-logo img,
+.home-match-card .hm-team-logo .logo-plashka {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
   object-fit: contain !important;
   display: block !important;
+  padding: 0 !important;
+  background: transparent !important;
   border-radius: 0 !important;
+  box-shadow: none !important;
+}
+@media (min-width: 640px) {
+  .home-match-card .hm-team-logo,
+  .home-match-card .hm-team-logo img,
+  .home-match-card .hm-team-logo .logo-plashka {
+    width: 40px !important; height: 40px !important;
+    min-width: 40px !important; max-width: 40px !important;
+    min-height: 40px !important; max-height: 40px !important;
+  }
+}
+
+.poster-team .logo-plashka,
+.poster-team .logo-plashka img,
+.poster-team img.badge-large {
+  width: 60px !important;
+  height: 60px !important;
+  min-width: 60px !important;
+  max-width: 60px !important;
+  min-height: 60px !important;
+  max-height: 60px !important;
+  object-fit: contain !important;
+  display: block !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 @media (min-width: 640px) {
   .poster-team .logo-plashka,
-  .poster-team .logo-plashka.size-xl,
-  .poster-team .badge-large {
-    width: 96px !important; height: 96px !important;
-    min-width: 96px !important; max-width: 96px !important;
-    min-height: 96px !important; max-height: 96px !important;
-    padding: 8px !important;
+  .poster-team .logo-plashka img,
+  .poster-team img.badge-large {
+    width: 80px !important; height: 80px !important;
+    min-width: 80px !important; max-width: 80px !important;
+    min-height: 80px !important; max-height: 80px !important;
   }
 }
-.poster-pill {
-  border-radius: 32px !important;
-  padding: 20px 26px !important;
-  gap: 18px !important;
-}
-@media (max-width: 600px) {
-  .poster-pill { border-radius: 24px !important; padding: 14px 16px !important; gap: 10px !important; }
-}
 
-/* ---------- Главная: карточка ближайшего матча ---------- */
-.home-match-card .hm-team-logo {
-  width: 64px !important; height: 64px !important;
-  min-width: 64px !important; max-width: 64px !important;
-  min-height: 64px !important; max-height: 64px !important;
-  padding: 5px !important;
-  background: #ffffff !important;
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
-  border-radius: 50% !important;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  overflow: hidden !important;
-  box-sizing: border-box !important;
-}
-.home-match-card .hm-team-logo img,
-.home-match-card .hm-team-logo .logo-plashka,
-.home-match-card .hm-team-logo .logo-plashka img {
-  width: 100% !important; height: 100% !important;
-  max-width: 100% !important; max-height: 100% !important;
-  object-fit: contain !important;
-  display: block !important;
-  padding: 0 !important;
-  background: transparent !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-/* ---------- Таблица, номинации, сайдбар ---------- */
-.club-link .badge-icon,
-.club-link img.badge-icon {
-  width: 28px !important; height: 28px !important;
-  border-radius: 50% !important;
-  background: #ffffff !important;
-  padding: 2px !important;
-  box-sizing: border-box !important;
-  object-fit: contain !important;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35) !important;
-  vertical-align: middle;
-}
-.club-mini {
-  background: #ffffff !important;
-  border-color: rgba(255, 255, 255, 0.2) !important;
-  padding: 3px !important;
-}
-.club-mini .badge-icon,
-.club-mini img,
-.club-mini span,
-.club-mini .logo-plashka {
-  border-radius: 50% !important;
-  background: transparent !important;
-  padding: 0 !important;
-  box-shadow: none !important;
-}
-.club-mini:hover {
-  background: #ffffff !important;
-  border-color: var(--amber) !important;
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.5) !important;
-}
-.award-pill .badge-icon,
 .award-pill img,
-.award-pill .logo-plashka {
-  border-radius: 50% !important;
-  background: #ffffff !important;
-  padding: 3px !important;
-  box-sizing: border-box !important;
-}
-#clubLogoHero .badge-large,
-#clubLogoHero .logo-plashka,
-#clubLogoHero img,
-#clubLogoHero span {
-  width: 96px !important; height: 96px !important;
-  min-width: 96px !important; max-width: 96px !important;
-  min-height: 96px !important; max-height: 96px !important;
-  padding: 8px !important;
-  border-radius: 50% !important;
-  background: #ffffff !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45) !important;
-  box-sizing: border-box !important;
-}
-#clubLogoHero .logo-plashka img,
-#clubLogoHero img {
+.award-pill .badge-icon,
+.award-pill .logo-plashka,
+.award-pill .logo-plashka img,
+.assist-table-row-club img,
+.assist-table-row-club .logo-plashka,
+.assist-table-row-club .logo-plashka img {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  object-fit: contain !important;
+  display: inline-block !important;
+  flex-shrink: 0 !important;
   padding: 0 !important;
   background: transparent !important;
   border-radius: 0 !important;
-  box-shadow: none !important;
+}
+
+.pc-photo-img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+}
+
+#fedLogoDisplay .badge-icon,
+#fedLogoDisplay img,
+#fedLogoDisplay span {
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  max-width: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  object-fit: contain !important;
+  display: inline-block !important;
+  padding: 0 !important;
+  background: transparent !important;
 }
 
 /* ============================================================
-   2. ДОСЬЕ ИГРОКА: КАРЬЕРА + ИСТОРИЯ ПЕРЕХОДОВ
+   3. СИМВОЛИЧЕСКАЯ СБОРНАЯ ТУРА
    ============================================================ */
-.pc-career-table {
-  width: 100%;
-  margin-top: 10px;
-  font-size: 12px;
-  background: rgba(13, 21, 39, 0.7);
-  border: 1px solid var(--border-soft, rgba(255,255,255,0.08));
-  border-radius: 10px;
-  overflow: hidden;
-}
-.pc-career-table th,
-.pc-career-table td {
-  padding: 7px 8px;
-  font-size: 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-}
-.pc-career-table th {
-  background: rgba(7, 12, 24, 0.85);
-  color: var(--text-muted, #94a3b8);
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.pc-career-table .pc-club-tag {
-  font-size: 11px;
-  padding: 4px 10px;
-  display: inline-block;
-  background: rgba(59, 130, 246, 0.15);
-  color: #93c5fd;
-  border: 1px solid rgba(59, 130, 246, 0.35);
-  border-radius: 999px;
-  font-weight: 700;
-}
-.pc-transfer-note {
-  margin-top: 12px;
-  padding: 10px 14px;
-  background: rgba(245, 166, 35, 0.08);
-  border: 1px solid rgba(245, 166, 35, 0.3);
-  border-radius: 8px;
-  font-size: 12px;
-  color: #cbd5e1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-.pc-transfer-note strong {
-  color: var(--gold, #f5a623);
-  margin-right: 6px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* ============================================================
-   3. СИМВОЛИЧЕСКАЯ СБОРНАЯ ТУРА — визуал на поле
-   Майка = белый круглый бейдж с логотипом клуба.
-   Под ней — плашка с фамилией и амплуа.
-   ============================================================ */
-
 .sp-player {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -323,8 +278,6 @@
   transform: translate(-50%, -50%) scale(1.08);
   z-index: 6;
 }
-
-/* Круглый белый бейдж с эмблемой клуба */
 .sp-shirt {
   width: 44px;
   height: 44px;
@@ -332,24 +285,24 @@
   max-width: 44px;
   min-height: 44px;
   max-height: 44px;
-  padding: 4px;
-  box-sizing: border-box;
-  background: #ffffff;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.6);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55),
-              0 0 0 1px rgba(0, 0, 0, 0.08) inset;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow: visible;
   margin: 0 auto;
-  transition: box-shadow 0.2s, border-color 0.2s;
+  filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.75))
+          drop-shadow(0 0 2px rgba(255, 255, 255, 0.35));
+  transition: filter 0.2s, transform 0.2s;
 }
 .sp-player:hover .sp-shirt {
-  box-shadow: 0 6px 20px rgba(245, 166, 35, 0.55),
-              0 0 0 2px rgba(245, 166, 35, 0.5);
-  border-color: #f5a623;
+  filter: drop-shadow(0 6px 16px rgba(245, 166, 35, 0.7))
+          drop-shadow(0 0 3px rgba(255, 255, 255, 0.6));
+  transform: scale(1.1);
 }
 .sp-shirt > img,
 .sp-shirt .logo-plashka,
@@ -364,9 +317,8 @@
   background: transparent !important;
   box-shadow: none !important;
   padding: 0 !important;
+  filter: none !important;
 }
-
-/* Fallback: если логотипа нет — аббревиатура на цвете клуба */
 .sp-shirt-fallback {
   width: 100%;
   height: 100%;
@@ -377,12 +329,12 @@
   font-size: 11px;
   font-weight: 900;
   letter-spacing: 0.05em;
-  border-radius: 50%;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6);
 }
-
-/* Фамилия игрока — контрастная плашка с тенью */
 .sp-name {
-  margin-top: 5px;
+  margin-top: 4px;
   font-size: 11px;
   font-weight: 900;
   line-height: 1.1;
@@ -390,7 +342,7 @@
   font-family: 'Russo One', var(--font-accent, sans-serif);
   padding: 3px 8px;
   border-radius: 5px;
-  background: rgba(11, 17, 30, 0.88);
+  background: rgba(11, 17, 30, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.15);
   white-space: nowrap;
   display: inline-block;
@@ -398,7 +350,6 @@
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95),
                0 0 8px rgba(0, 0, 0, 0.7);
 }
-/* Амплуа под фамилией */
 .sp-pos {
   margin-top: 3px;
   font-size: 9px;
@@ -408,27 +359,172 @@
   letter-spacing: 0.1em;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
 }
-
-/* Увеличение на десктопе */
 @media (min-width: 640px) {
   .sp-shirt {
-    width: 48px; height: 48px;
-    min-width: 48px; max-width: 48px;
-    min-height: 48px; max-height: 48px;
-    padding: 5px;
+    width: 56px; height: 56px;
+    min-width: 56px; max-width: 56px;
+    min-height: 56px; max-height: 56px;
   }
-  .sp-name {
-    font-size: 12px;
-    padding: 4px 10px;
-    margin-top: 6px;
-  }
-  .sp-pos {
-    font-size: 10px;
-  }
+  .sp-name { font-size: 12px; padding: 4px 10px; margin-top: 6px; }
+  .sp-pos { font-size: 10px; }
+}
+
+.symbolic-pitch-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 24px;
+  width: 100%;
+}
+.symbolic-pitch {
+  position: relative;
+  width: 100%;
+  max-width: 460px;
+  aspect-ratio: 3 / 4;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 40px, transparent 40px, transparent 80px),
+    linear-gradient(180deg, #0e3d23 0%, #0b4d2a 50%, #0e3d23 100%);
+  border-radius: 12px;
+  border: 2px solid rgba(255,255,255,0.25);
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5), inset 0 0 80px rgba(0,0,0,0.4);
 }
 
 /* ============================================================
-   4. КОНСТРУКТОР СБОРНОЙ В АДМИНКЕ
+   4. МОБИЛЬНАЯ АДАПТАЦИЯ
+   ============================================================ */
+@media (max-width: 768px) {
+  .welcome-hero {
+    height: 260px !important;
+    max-height: 280px !important;
+    margin-bottom: 20px !important;
+  }
+  .welcome-arrow { width: 38px; height: 38px; font-size: 20px; }
+  .welcome-arrow-prev { left: 8px; }
+  .welcome-arrow-next { right: 8px; }
+  .welcome-logo { width: 52px; height: 52px; margin-bottom: 12px; }
+  .welcome-title { font-size: 18px !important; }
+  .welcome-title span { font-size: 0.85em; }
+  .welcome-subtitle { font-size: 10px !important; letter-spacing: 0.06em; }
+
+  .home-content { padding: 0 12px 40px !important; }
+  .home-section { margin-bottom: 26px; }
+  .home-section-title { font-size: 13px; }
+  .home-matches-grid { grid-template-columns: 1fr; gap: 10px; }
+  .home-match-card { padding: 12px 14px; }
+  .home-match-card .hm-team-logo {
+    width: 32px !important; height: 32px !important;
+    min-width: 32px !important; max-width: 32px !important;
+    min-height: 32px !important; max-height: 32px !important;
+  }
+  .home-match-card .hm-vs { font-size: 13px; padding: 3px 8px; }
+
+  .symbolic-pitch {
+    max-width: 100%;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 10px;
+  }
+  .symbolic-pitch-wrap { padding: 6px 0 18px; }
+  .sp-shirt {
+    width: 40px; height: 40px;
+    min-width: 40px; max-width: 40px;
+    min-height: 40px; max-height: 40px;
+  }
+  .sp-name { font-size: 10px; padding: 2px 7px; margin-top: 3px; }
+  .sp-pos { font-size: 8px; margin-top: 2px; }
+
+  .lfld-card-team-logo {
+    width: 32px !important; height: 32px !important;
+    min-width: 32px !important; max-width: 32px !important;
+    min-height: 32px !important; max-height: 32px !important;
+  }
+  .lfld-card-team-name { font-size: 12px; }
+  .lfld-card-score { font-size: 16px; padding: 5px 12px; min-width: 60px; }
+  .lfld-match-card { padding: 12px 14px; }
+
+  .poster-team .logo-plashka,
+  .poster-team .logo-plashka img,
+  .poster-team img.badge-large {
+    width: 52px !important; height: 52px !important;
+    min-width: 52px !important; max-width: 52px !important;
+    min-height: 52px !important; max-height: 52px !important;
+  }
+  .poster-pill { padding: 12px 14px !important; gap: 8px !important; }
+  .poster-team-name { font-size: 11px; }
+  .poster-score { font-size: 20px; padding: 8px 16px; }
+
+  table { display: block; overflow-x: auto; white-space: nowrap; }
+  table thead, table tbody { display: table; width: 100%; }
+  table thead { width: 100%; }
+
+  .modal-overlay { padding: 8px; align-items: flex-end; }
+  .modal-content {
+    max-height: 92vh;
+    border-radius: 20px 20px 0 0;
+    padding: 18px 16px;
+  }
+  .pc-header { flex-direction: column; align-items: center; text-align: center; }
+  .pc-photo { width: 110px; height: 145px; }
+  .pc-stats { grid-template-columns: repeat(3, 1fr); }
+  .mr-meta-row { grid-template-columns: 1fr; }
+  .attendance-grid { grid-template-columns: 1fr; }
+  .club-stats-bar { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (max-width: 480px) {
+  .welcome-hero { height: 220px !important; max-height: 240px !important; }
+  .welcome-logo { width: 44px; height: 44px; margin-bottom: 10px; }
+  .welcome-title { font-size: 15px !important; }
+  .welcome-subtitle { font-size: 9px !important; }
+  .welcome-arrow { width: 32px; height: 32px; font-size: 16px; }
+  .sp-shirt {
+    width: 34px; height: 34px;
+    min-width: 34px; max-width: 34px;
+    min-height: 34px; max-height: 34px;
+  }
+  .sp-name { font-size: 9px; padding: 2px 6px; }
+  .sp-pos { font-size: 7px; }
+}
+
+/* ============================================================
+   5. АССИСТЫ В ПРОТОКОЛАХ МАТЧЕЙ
+   ============================================================ */
+.protocol-line.assist {
+  font-size: 11px;
+  color: #34d399;
+  font-weight: 600;
+  padding-left: 14px;
+  margin-top: -2px;
+  opacity: 0.92;
+}
+.protocol-line.assist .p-assist { color: #34d399; }
+.lfld-card-goal-assist {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #34d399;
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.lfld-card-goal-assist::before {
+  content: "👟 ";
+  font-size: 9px;
+}
+.assist-table-row-club {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.assist-cell {
+  color: #34d399 !important;
+  font-weight: 800;
+}
+
+/* ============================================================
+   6. КОНСТРУКТОР СБОРНОЙ В АДМИНКЕ
    ============================================================ */
 .totw-admin-grid {
   display: grid;
@@ -511,19 +607,20 @@
   display: inline-flex; align-items: center; gap: 5px;
 }
 .lfld-ac-item .ac-club img {
-  width: 16px; height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  padding: 1px;
-  object-fit: contain;
+  width: 18px !important; height: 18px !important;
+  object-fit: contain !important;
+  background: transparent;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.6));
 }
 .lfld-ac-item.disabled {
   opacity: 0.4;
   cursor: not-allowed;
   text-decoration: line-through;
 }
-.lfld-ac-empty { padding: 12px; color: var(--text-muted, #94a3b8); font-size: 12px; text-align: center; font-style: italic; }
-
+.lfld-ac-empty {
+  padding: 12px; color: var(--text-muted, #94a3b8);
+  font-size: 12px; text-align: center; font-style: italic;
+}
 .totw-chosen {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 10px;
@@ -532,25 +629,30 @@
   border-radius: 8px;
 }
 .totw-chosen-kit {
-  width: 34px; height: 34px; border-radius: 50%;
+  width: 34px; height: 34px; border-radius: 0;
   display: flex; align-items: center; justify-content: center;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  background: transparent;
+  border: none;
+  box-shadow: none;
   flex-shrink: 0;
-  overflow: hidden;
-  padding: 3px;
+  overflow: visible;
+  padding: 0;
   box-sizing: border-box;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.55));
 }
 .totw-chosen-kit img {
   width: 100% !important; height: 100% !important;
   object-fit: contain !important;
   display: block !important;
+  background: transparent !important;
+  filter: none !important;
 }
 .totw-chosen-kit span {
   font-family: var(--font-accent);
-  font-size: 9px; font-weight: 900;
+  font-size: 10px; font-weight: 900;
   color: #070c18;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 .totw-chosen-info { flex: 1; min-width: 0; }
 .totw-chosen-name {
@@ -565,13 +667,14 @@
 }
 
 /* ============================================================
-   5. АФИША ТУРНИРОВ (главная)
+   7. АФИША ТУРНИРОВ
    ============================================================ */
 .affiche-tour-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
+@media (max-width: 768px) { .affiche-tour-grid { grid-template-columns: 1fr; } }
 .affiche-tour-card {
   background: rgba(13,21,39,.85);
   border: 1px solid rgba(255,255,255,0.08);
@@ -653,7 +756,7 @@
 }
 
 /* ============================================================
-   6. АДМИН: сетка афиши + редактор расписания
+   8. АДМИН: афиша + расписание
    ============================================================ */
 .affiche-admin-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .affiche-admin-item {
@@ -708,7 +811,6 @@
   border: 1px solid rgba(255,255,255,0.08) !important;
   border-radius: 6px !important;
 }
-.me-table input:focus, .me-table select:focus { border-color: var(--amber, #f59e0b) !important; }
 .me-save-btn {
   background: rgba(16,185,129,.2) !important;
   color: #34d399 !important;
@@ -718,32 +820,59 @@
   border-radius: 6px !important;
   font-weight: 700;
 }
-.me-save-btn:hover { background: rgba(16,185,129,.35) !important; }
 
 /* ============================================================
-   7. Мобильная адаптация
+   9. ФОН САЙТА — фиксированный слой
    ============================================================ */
-@media (max-width: 600px) {
-  .lfld-card-team-logo {
-    width: 64px !important; height: 64px !important;
-    min-width: 64px !important; max-width: 64px !important;
-    min-height: 64px !important; max-height: 64px !important;
-    padding: 5px !important;
-  }
-  .poster-team .logo-plashka,
-  .poster-team .badge-large {
-    width: 64px !important; height: 64px !important;
-    min-width: 64px !important; max-width: 64px !important;
-    min-height: 64px !important; max-height: 64px !important;
-    padding: 5px !important;
-  }
-  .home-match-card .hm-team-logo {
-    width: 52px !important; height: 52px !important;
-    min-width: 52px !important; max-width: 52px !important;
-    min-height: 52px !important; max-height: 52px !important;
-    padding: 4px !important;
-  }
-  .badge-large, img.badge-large { padding: 6px; }
-  .affiche-admin-item { grid-template-columns: 90px 1fr; }
-  .affiche-admin-item img, .affiche-admin-item .no-poster { width: 90px; height: 52px; }
+#site-bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: #0b132b;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 0.5s ease, background-image 0.5s ease;
+}
+body {
+  background-color: #0b132b !important;
+}
+body.has-custom-bg {
+  background-image: none !important;
+}
+
+/* ============================================================
+   10. ФИКС КЛИКАБЕЛЬНОСТИ
+   ============================================================ */
+.modal-overlay:not([style*="display: flex"]):not([style*="display:flex"]):not([style*="display: block"]):not([style*="display:block"]) {
+  pointer-events: none !important;
+}
+.modal-overlay[style*="display: flex"],
+.modal-overlay[style*="display:flex"] {
+  pointer-events: auto !important;
+}
+.welcome-overlay,
+.hero-carousel::after,
+body::before,
+.logo-plashka::before,
+.logo-plashka::after {
+  pointer-events: none !important;
+}
+.lfld-match-card.pointer,
+.tab-btn,
+.menu-btn,
+.round-tab,
+.club-link,
+.player-name-clickable,
+.club-mini {
+  pointer-events: auto;
+}
+
+/* ============================================================
+   11. ДОСЬЕ — 3 ячейки статистики
+   ============================================================ */
+.pc-stats.pc-stats-3 {
+  grid-template-columns: repeat(3, 1fr) !important;
 }
