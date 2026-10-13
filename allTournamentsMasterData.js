@@ -1,360 +1,60 @@
-/* ============================================================
-   player-cabinet.js — досье игрока
-   
-   v3.0 — ФИКС «СКЛЕИВАНИЯ» ОДНОФАМИЛЬЦЕВ:
-   - Карьера собирается строго по (ПОЛНОЕ ИМЯ + КЛУБ)
-   - Галеев (Спринт) ≠ Галеев (Комета) ≠ Галеев (Пионер)
-   - Переходы между турнирами — только через явные алиасы в database.js
-   - Клуб в качестве второго измерения ключа убирает ложные слияния
-   ============================================================ */
-(function () {
-  'use strict';
+  ,
 
-  /* ---------- Утилиты ---------- */
-  function posBadge(pos) {
-    var map = { 'ВРТ': 'pos-vrt', 'ЗАЩ': 'pos-zas', 'ПЗ': 'pos-pz', 'НАП': 'pos-nap', 'УНИ': 'pos-uni' };
-    return '<span class="pos-badge ' + (map[pos] || 'pos-uni') + '">' + (pos || 'УНИ') + '</span>';
-  }
-  function ageFromDate(birth) {
-    if (!birth) return '';
-    var m = String(birth).match(/(\d{2})\.(\d{2})\.(\d{4})/);
-    if (!m) return '';
-    var d = new Date(+m[3], +m[2] - 1, +m[1]);
-    var age = Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000));
-    return age + ' лет';
-  }
-  function norm(s) {
-    return String(s || '').toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
-  }
+  /* ==========================================================
+     5. КУБОК МЕТАЛЛИСТА 2026 (2 дня)
+     31.10.2026 — групповой этап
+     01.11.2026 — золотой и серебряный плей-офф
+     ========================================================== */
+  cup_metallist_2026: {
+    title: "Кубок Металлиста (2026)",
+    format: "8х8",
+    status: "announce",
+    dates: {
+      group: "31.10.2026",
+      playoff: "01.11.2026"
+    },
+    groups: {
+      "A": ["Химмаш", "Detali63SMR", "ПТИМАШ", "Ак Барс"],
+      "B": ["Металлист", "Тонус", "Авангард", "Спринт"]
+    },
+    teams: ["Химмаш", "Detali63SMR", "ПТИМАШ", "Ак Барс", "Металлист", "Тонус", "Авангард", "Спринт"],
+    matches: [
+      /* ===== Групповой этап 31.10.2026 ===== */
+      { tour: "ГРУППА", date: "31.10.2026 14:00", t1: "Химмаш",   s1: 0, s2: 0, t2: "Detali63SMR", scorers: "", played: false, status: "upcoming", group: "A" },
+      { tour: "ГРУППА", date: "31.10.2026 14:30", t1: "Авангард", s1: 0, s2: 0, t2: "Спринт",      scorers: "", played: false, status: "upcoming", group: "B" },
+      { tour: "ГРУППА", date: "31.10.2026 15:00", t1: "ПТИМАШ",   s1: 0, s2: 0, t2: "Ак Барс",     scorers: "", played: false, status: "upcoming", group: "A" },
+      { tour: "ГРУППА", date: "31.10.2026 15:30", t1: "Металлист",s1: 0, s2: 0, t2: "Тонус",       scorers: "", played: false, status: "upcoming", group: "B" },
+      { tour: "ГРУППА", date: "31.10.2026 16:00", t1: "Химмаш",   s1: 0, s2: 0, t2: "ПТИМАШ",      scorers: "", played: false, status: "upcoming", group: "A" },
+      { tour: "ГРУППА", date: "31.10.2026 16:30", t1: "Металлист",s1: 0, s2: 0, t2: "Авангард",    scorers: "", played: false, status: "upcoming", group: "B" },
+      { tour: "ГРУППА", date: "31.10.2026 17:00", t1: "Detali63SMR", s1: 0, s2: 0, t2: "Ак Барс",  scorers: "", played: false, status: "upcoming", group: "A" },
+      { tour: "ГРУППА", date: "31.10.2026 17:30", t1: "Спринт",   s1: 0, s2: 0, t2: "Тонус",       scorers: "", played: false, status: "upcoming", group: "B" },
+      { tour: "ГРУППА", date: "31.10.2026 18:00", t1: "Химмаш",   s1: 0, s2: 0, t2: "Ак Барс",     scorers: "", played: false, status: "upcoming", group: "A" },
+      { tour: "ГРУППА", date: "31.10.2026 18:30", t1: "Авангард", s1: 0, s2: 0, t2: "Тонус",       scorers: "", played: false, status: "upcoming", group: "B" },
+      { tour: "ГРУППА", date: "31.10.2026 19:00", t1: "ПТИМАШ",   s1: 0, s2: 0, t2: "Detali63SMR", scorers: "", played: false, status: "upcoming", group: "A" },
+      { tour: "ГРУППА", date: "31.10.2026 19:30", t1: "Металлист",s1: 0, s2: 0, t2: "Спринт",      scorers: "", played: false, status: "upcoming", group: "B" },
 
-  /* ⚡ Полный ключ игрока: все буквы + пробелы, в нижнем регистре */
-  function fullNameKey(name) {
-    return String(name || '')
-      .toLowerCase()
-      .replace(/ё/g, 'е')
-      .replace(/[^а-яa-z0-9\s]/gi, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
+      /* ===== Серебряный плей-офф 01.11.2026 ===== */
+      { tour: "СЕРЕБРО 1/2", date: "01.11.2026 12:00", t1: "А3",       s1: 0, s2: 0, t2: "Б4",          scorers: "", played: false, status: "upcoming", bracket: "silver" },
+      { tour: "СЕРЕБРО 1/2", date: "01.11.2026 13:00", t1: "А4",       s1: 0, s2: 0, t2: "Б3",          scorers: "", played: false, status: "upcoming", bracket: "silver" },
+      { tour: "СЕРЕБРО 3-е", date: "01.11.2026 14:00", t1: "Проигр.1", s1: 0, s2: 0, t2: "Проигр.2",     scorers: "", played: false, status: "upcoming", bracket: "silver" },
+      { tour: "СЕРЕБРО ФИНАЛ", date: "01.11.2026 15:00", t1: "Побед.1", s1: 0, s2: 0, t2: "Побед.2",     scorers: "", played: false, status: "upcoming", bracket: "silver" },
 
-  /* ⚡ Композитный ключ (ИМЯ + КЛУБ) — основа разделения однофамильцев */
-  function compositeKey(name, club) {
-    return fullNameKey(name) + '|||' + norm(club || '');
-  }
-
-  /* ---------- Карта турниров ---------- */
-  var TOURNEY_LABELS = {
-    'tournament_5x5':   'Первенство 5х5 (Лето 2026)',
-    'tournament_7x7':   'Первенство 7х7 (Весна 2026)',
-    'tournament_night': 'Ночная лига 8х8 (2026)',
-    'cup_5x5':          'Кубок ЛФЛД 5х5 (2026)'
-  };
-  function tourneyLabel(key, fallback) {
-    return TOURNEY_LABELS[key] || fallback || key;
-  }
-
-  /* ============================================================
-     СБОР КАРЬЕРЫ — СТРОГО ПО (ИМЯ + КЛУБ)
-     Если клуб не задан — берём всё, но разделяем по клубам
-     ============================================================ */
-  function buildCareerFromMaster(playerName, clubHint) {
-    var M = window.LFLD_MASTER_DB;
-    if (!M) return [];
-
-    var out = [];
-    var targetFull = fullNameKey(playerName);
-    var targetClub = clubHint ? norm(clubHint) : null;
-    var seen = {}; // защита от дублей
-
-    function push(entry) {
-      var k = compositeKey(entry.playerName || playerName, entry.club) + '|||' + entry.tournament;
-      if (seen[k]) return;
-      seen[k] = 1;
-      out.push(entry);
+      /* ===== Золотой плей-офф 01.11.2026 ===== */
+      { tour: "ЗОЛОТО 1/2", date: "01.11.2026 12:30", t1: "А1",        s1: 0, s2: 0, t2: "Б2",         scorers: "", played: false, status: "upcoming", bracket: "gold" },
+      { tour: "ЗОЛОТО 1/2", date: "01.11.2026 13:30", t1: "А2",        s1: 0, s2: 0, t2: "Б1",         scorers: "", played: false, status: "upcoming", bracket: "gold" },
+      { tour: "ЗОЛОТО 3-е", date: "01.11.2026 14:30", t1: "Проигр.1",  s1: 0, s2: 0, t2: "Проигр.2",    scorers: "", played: false, status: "upcoming", bracket: "gold" },
+      { tour: "ЗОЛОТО ФИНАЛ", date: "01.11.2026 15:40", t1: "Побед.1", s1: 0, s2: 0, t2: "Побед.2",     scorers: "", played: false, status: "upcoming", bracket: "gold" }
+    ],
+    awards: [],
+    isCup: true,
+    isMetallistCup: true,
+    regulation: {
+      groupDuration: "2 тайма по 12 минут",
+      playoffDuration: "2 тайма по 15 минут",
+      goldFirst: "А1 — Б2",
+      goldSecond: "А2 — Б1",
+      silverFirst: "А3 — Б4",
+      silverSecond: "А4 — Б3",
+      ceremony: "16:30 — ТОРЖЕСТВЕННОЕ НАГРАЖДЕНИЕ КОМАНД (обязательное присутствие всех участников турнира!)"
     }
-
-    // 1. Первенства 5х5 / 7х7 / Ночная лига — teams[club] = [...]
-    ['tournament_5x5', 'tournament_7x7', 'tournament_night'].forEach(function (mk) {
-      var t = M[mk];
-      if (!t || !t.teams) return;
-      Object.keys(t.teams).forEach(function (club) {
-        // ⚡ Если задан clubHint — рассматриваем ТОЛЬКО этот клуб
-        if (targetClub && norm(club) !== targetClub) return;
-
-        (t.teams[club] || []).forEach(function (p) {
-          if (!p || !p.name) return;
-          // ⚡ Строгое сравнение по полному имени
-          if (fullNameKey(p.name) !== targetFull) return;
-
-          push({
-            playerName: p.name,
-            club: club,
-            tournament: tourneyLabel(mk, t.title),
-            matches: p.m || 0,
-            goals: p.g || 0,
-            assists: p.a || 0,
-            isCup: false
-          });
-        });
-      });
-    });
-
-    // 2. Кубок 5х5 — плоский список players
-    if (M.cup_5x5 && Array.isArray(M.cup_5x5.players)) {
-      M.cup_5x5.players.forEach(function (p) {
-        if (!p || !p.name) return;
-        if (targetClub && norm(p.team) !== targetClub) return;
-        if (fullNameKey(p.name) !== targetFull) return;
-
-        push({
-          playerName: p.name,
-          club: p.team,
-          tournament: tourneyLabel('cup_5x5', M.cup_5x5.title),
-          matches: p.m || 0,
-          goals: p.g || 0,
-          assists: 0,
-          isCup: true,
-          award: p.award || '',
-          pastClubs: p.pastClubs || [],
-          note: p.note || ''
-        });
-      });
-    }
-
-    return out;
   }
-
-  /* ============================================================
-     НАГРАДЫ — тоже строго по имени + клубу
-     ============================================================ */
-  function buildAwards(playerName, clubHint, careerFromMaster) {
-    var awards = [];
-    var targetFull = fullNameKey(playerName);
-    var targetClub = clubHint ? norm(clubHint) : null;
-
-    // 1. Из карьеры (в master-БД)
-    careerFromMaster.forEach(function (c) {
-      if (c.award && awards.indexOf(c.award) === -1) awards.push(c.award);
-    });
-
-    // 2. Из teamPlayerProfiles — только точное совпадение
-    if (window.teamPlayerProfiles) {
-      Object.keys(window.teamPlayerProfiles).forEach(function (k) {
-        if (fullNameKey(k) !== targetFull) return;
-        var prof = window.teamPlayerProfiles[k];
-        if (targetClub && prof.club && norm(prof.club) !== targetClub) return;
-        (prof.awards || []).forEach(function (a) {
-          if (awards.indexOf(a) === -1) awards.push(a);
-        });
-      });
-    }
-
-    // 3. Из database.js
-    if (window.database && window.database.findPlayersByName) {
-      var found = window.database.findPlayersByName(playerName, clubHint);
-      if (found && found.length) {
-        found.forEach(function (p) {
-          (p.awards || []).forEach(function (a) {
-            if (awards.indexOf(a) === -1) awards.push(a);
-          });
-        });
-      }
-    }
-
-    return awards;
-  }
-
-  /* ============================================================
-     ОСНОВНАЯ ФУНКЦИЯ
-     ============================================================ */
-  function openPlayerCabinet(playerIdOrName, clubHint) {
-    var player = null;
-
-    // ⚡ Только точное совпадение по имени + клубу
-    if (window.database) {
-      if (playerIdOrName && window.database.getPlayer && window.database.getPlayer(playerIdOrName)) {
-        player = window.database.getPlayer(playerIdOrName);
-      } else if (window.database.findPlayersByName) {
-        var found = window.database.findPlayersByName(playerIdOrName, clubHint);
-        if (found && found.length) {
-          // Если задан clubHint — берём только того, у кого этот клуб в списке
-          if (clubHint) {
-            var strict = found.filter(function (p) {
-              return (p.clubs || []).some(function (c) { return norm(c) === norm(clubHint); });
-            });
-            player = strict[0] || found[0];
-          } else {
-            player = found[0];
-          }
-        }
-      }
-    }
-
-    if (!player) {
-      player = {
-        id: null,
-        lastName: playerIdOrName,
-        firstName: '', middleName: '',
-        birthDate: '', photo: '',
-        position: 'УНИ',
-        aliases: [playerIdOrName],
-        clubs: clubHint ? [clubHint] : [],
-        tournaments: [],
-        awards: [],
-        stats: { matches: 0, goals: 0, assists: 0 }
-      };
-    }
-
-    var fullName = [player.lastName, player.firstName, player.middleName].filter(Boolean).join(' ') || 'Игрок';
-
-    // ⚡ Карьера — по (имя + клуб)
-    var career = buildCareerFromMaster(playerIdOrName, clubHint);
-
-    var totalStats = { matches: 0, goals: 0, assists: 0 };
-    career.forEach(function (c) {
-      totalStats.matches += c.matches;
-      totalStats.goals += c.goals;
-      totalStats.assists += c.assists;
-    });
-
-    if (!career.length && player.stats) {
-      totalStats = {
-        matches: player.stats.matches || 0,
-        goals: player.stats.goals || 0,
-        assists: player.stats.assists || 0
-      };
-    }
-
-    var awards = buildAwards(playerIdOrName, clubHint, career);
-
-    /* --- Фото --- */
-    var photoHtml = player.photo
-      ? '<img src="' + player.photo + '" alt="" class="pc-photo-img">'
-      : '<div class="pc-photo-placeholder"><span>👤</span></div>';
-
-    /* --- Таблица карьеры --- */
-    var careerHtml = '';
-    if (career.length) {
-      var byClub = {};
-      var clubOrder = [];
-      career.forEach(function (c) {
-        if (!byClub[c.club]) { byClub[c.club] = []; clubOrder.push(c.club); }
-        byClub[c.club].push(c);
-      });
-
-      careerHtml = '<table class="pc-career-table">' +
-        '<thead><tr>' +
-          '<th class="text-left">Клуб</th>' +
-          '<th class="text-left">Турнир</th>' +
-          '<th>М</th><th>Г</th><th>А</th>' +
-        '</tr></thead><tbody>';
-
-      clubOrder.forEach(function (club) {
-        byClub[club].forEach(function (c, i) {
-          var rowspan = byClub[club].length;
-          careerHtml += '<tr>';
-          if (i === 0) {
-            careerHtml += '<td class="text-left" rowspan="' + rowspan + '">' +
-              '<span class="pc-club-tag">' + club + '</span></td>';
-          }
-          careerHtml += '<td class="text-left">' + c.tournament + (c.isCup ? ' 🏆' : '') + '</td>' +
-            '<td>' + c.matches + '</td>' +
-            '<td class="goals-cell">' + c.goals + '</td>' +
-            '<td class="assist-cell">' + c.assists + '</td>' +
-            '</tr>';
-        });
-      });
-      careerHtml += '</tbody></table>';
-
-      var transfers = [];
-      career.forEach(function (c) {
-        (c.pastClubs || []).forEach(function (pc) {
-          if (transfers.indexOf(pc) === -1) transfers.push(pc);
-        });
-      });
-      if (transfers.length) {
-        careerHtml += '<div class="pc-transfer-note">';
-        careerHtml += '<strong>⚽ История переходов:</strong> ';
-        careerHtml += transfers.map(function (pc) { return '<span class="pc-club-tag">' + pc + '</span>'; }).join(' → ');
-        careerHtml += ' → <span class="pc-club-tag">' + player.clubs.slice(-1)[0] + '</span>';
-        careerHtml += '</div>';
-      }
-    } else {
-      careerHtml = '<div class="pc-muted">Нет данных о матчах в мастер-БД</div>';
-    }
-
-    /* --- Награды --- */
-    var awardsHtml = awards.length
-      ? awards.map(function (a) {
-          return '<span class="pc-award-badge">🏆 ' + a + '</span>';
-        }).join('')
-      : '<span class="pc-muted">Пока без награждений</span>';
-
-    /* --- Клубы --- */
-    var allClubs = {};
-    career.forEach(function (c) { allClubs[c.club] = 1; });
-    (player.clubs || []).forEach(function (c) { allClubs[c] = 1; });
-    var clubsHtml = Object.keys(allClubs).length
-      ? Object.keys(allClubs).map(function (c) { return '<span class="pc-club-tag">' + c + '</span>'; }).join('')
-      : '<span class="pc-muted">Не играл в турнирах ЛФЛД</span>';
-
-    /* --- Турниры --- */
-    var tourneys = {};
-    career.forEach(function (c) { tourneys[c.tournament] = 1; });
-    (player.tournaments || []).forEach(function (tk) { tourneys[tourneyLabel(tk, tk)] = 1; });
-    var tourneysHtml = Object.keys(tourneys).length
-      ? Object.keys(tourneys).map(function (t) { return '<span class="pc-tourney-tag">' + t + '</span>'; }).join('')
-      : '<span class="pc-muted">—</span>';
-
-    var html = '';
-    html += '<div class="pc-header">';
-    html +=   '<div class="pc-photo">' + photoHtml + '</div>';
-    html +=   '<div class="pc-info">';
-    html +=     '<h2 class="pc-name">' + fullName + '</h2>';
-    html +=     '<div class="pc-pos">' + posBadge(player.position) +
-                  (clubHint ? ' <span class="pc-club-tag">' + clubHint + '</span>' : '') + '</div>';
-    html +=     '<div class="pc-row"><strong>Дата рождения:</strong> ' +
-                    (player.birthDate || '—') +
-                    (player.birthDate ? ' (' + ageFromDate(player.birthDate) + ')' : '') +
-                '</div>';
-    html +=   '</div>';
-    html += '</div>';
-
-    html += '<h4 class="pc-section-title">📊 Сводная статистика</h4>';
-    html += '<div class="pc-stats pc-stats-3">';
-    html +=   '<div class="pc-stat"><div class="pc-stat-value">' + totalStats.matches + '</div><div class="pc-stat-label">Матчи</div></div>';
-    html +=   '<div class="pc-stat"><div class="pc-stat-value">' + totalStats.goals + '</div><div class="pc-stat-label">⚽ Голы</div></div>';
-    html +=   '<div class="pc-stat"><div class="pc-stat-value">' + totalStats.assists + '</div><div class="pc-stat-label">👟 Ассисты</div></div>';
-    html += '</div>';
-
-    html += '<h4 class="pc-section-title">🏟 Карьера</h4>';
-    html += '<div class="pc-tags">' + clubsHtml + '</div>';
-
-    html += '<h4 class="pc-section-title">🏆 Турниры</h4>';
-    html += '<div class="pc-tags">' + tourneysHtml + '</div>';
-
-    html += '<h4 class="pc-section-title">📋 Статистика по клубам</h4>';
-    html += careerHtml;
-
-    html += '<h4 class="pc-section-title">🎖 Индивидуальные награды</h4>';
-    html += '<div class="pc-tags">' + awardsHtml + '</div>';
-
-    var body = document.getElementById('playerCabinetBody');
-    var modal = document.getElementById('playerCabinetModal');
-    if (body) body.innerHTML = html;
-    if (modal) modal.style.display = 'flex';
-  }
-
-  function closePlayerCabinet() {
-    var m = document.getElementById('playerCabinetModal');
-    if (m) m.style.display = 'none';
-  }
-
-  window.openPlayerCabinet = openPlayerCabinet;
-  window.closePlayerCabinet = closePlayerCabinet;
-  window.__openPlayerCabinet = function (idOrName, clubHint) {
-    openPlayerCabinet(idOrName, clubHint);
-  };
-
-  console.log('[player-cabinet] v3.0 — однофамильцы разделены по (имя + клуб)');
-})();

@@ -655,4 +655,65 @@ window.LFLD_MASTER_DB = {
       ]
     }
   }
-};
+}; /* ============================================================
+   17. СВОРАЧИВАЕМЫЙ СОСТАВ КОМАНДЫ
+   ============================================================ */
+.club-roster-table {
+  margin-bottom: 0 !important;
+}
+
+/* Скрытые строки заявки */
+.club-roster-table tr.roster-hidden,
+#clubRosterBody tr.roster-hidden {
+  display: none !important;
+}
+
+/* Кнопка «Развернуть / Свернуть состав» */
+.roster-toggle {
+  width: 100%;
+  padding: 11px 16px;
+  margin: 14px 0 20px;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.85);
+  color: #fbbf24;
+  font-family: var(--font-accent);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid #334155;
+  transition: all 0.2s ease;
+  display: none;              /* переключается в JS на flex */
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.roster-toggle:hover {
+  background: #334155;
+  border-color: #f59e0b;
+  color: #fde68a;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.18);
+}
+.roster-toggle:active {
+  transform: translateY(0);
+}
+.roster-toggle::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fbbf24;
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.8);
+}
+
+@media (max-width: 640px) {
+  .roster-toggle {
+    font-size: 11.5px;
+    padding: 10px 12px;
+    margin: 12px 0 16px;
+  }
+}

@@ -1,0 +1,597 @@
+/* ============================================================
+   light-theme.css — СВЕТЛАЯ ТЕМА ЛФЛД (v1.1)
+   
+   v1.1:
+   - Компактный слайдер (max-height 360–400px, скругления, виньетка)
+   - Формат командного фото h-64 sm:h-80 md:h-96 (object-cover)
+   - Стили для кроппер-модалки в админке
+   ============================================================ */
+
+/* ============ 1. ПЕРЕМЕННЫЕ СВЕТЛОЙ ТЕМЫ ============ */
+:root {
+  --bg-deep: #ffffff;
+  --bg-deeper: #f8fafc;
+  --bg-sidebar: rgba(255, 255, 255, 0.95);
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-card-solid: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-input: #ffffff;
+  --border-soft: rgba(226, 232, 240, 0.8);
+  --border-mid: #cbd5e1;
+  --text-light: #0f172a;
+  --text-mid: #334155;
+  --text-muted: #64748b;
+  --gold: #f59e0b;
+  --amber: #f59e0b;
+  --emerald: #059669;
+  --emerald-dark: #047857;
+  --danger: #dc2626;
+  --danger-dark: #b91c1c;
+  --warn: #d97706;
+  --silver: #64748b;
+  --bronze: #b45309;
+  --blue: #2563eb;
+  --vk: #0077ff;
+  --vk-hover: #005bbf;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+
+/* ============ 2. ГЛОБАЛЬНЫЙ ФОН ============ */
+html, body {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+body {
+  background: #ffffff !important;
+  min-height: 100vh;
+}
+body::before {
+  background: linear-gradient(90deg, #f59e0b, #10b981, #f59e0b) !important;
+}
+#site-bg-layer {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: -1 !important;
+  pointer-events: none !important;
+  background-color: #ffffff !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  opacity: 1 !important;
+  transition: opacity 0.3s ease !important;
+}
+body.has-custom-bg #site-bg-layer {
+  opacity: 0.25 !important;
+}
+
+/* ============ 3. HEADER ============ */
+header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+}
+.header-title,
+.header-title > span:last-child { color: #0f172a !important; }
+
+/* ============ 4. SIDEBAR ============ */
+.sidebar {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(12px) !important;
+  border-right: 1px solid rgba(226, 232, 240, 0.8) !important;
+}
+.menu-group-title { color: #64748b !important; }
+.sidebar-clubs-footer { border-top-color: rgba(226, 232, 240, 0.8) !important; }
+
+/* ============ 5. MENU / ROUND TABS ============ */
+.menu-btn { color: #334155 !important; border-color: transparent !important; }
+.menu-btn:hover { background: #f1f5f9 !important; color: #0f172a !important; }
+.menu-btn.active {
+  background: #f59e0b !important;
+  color: #0f172a !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.28) !important;
+}
+.round-tab {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+.round-tab:hover { background: #e2e8f0 !important; color: #0f172a !important; }
+.round-tab.active {
+  background: #f59e0b !important;
+  color: #0f172a !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3) !important;
+}
+
+/* ============ 6. TABS ============ */
+.tab-btn {
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+.tab-btn:hover { background: #e2e8f0 !important; color: #0f172a !important; }
+.tab-btn.active {
+  background: #f59e0b !important;
+  color: #0f172a !important;
+  border-color: #f59e0b !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3) !important;
+}
+
+/* ============ 7. КАРТОЧКИ ============ */
+.match-card,
+.admin-card,
+.admin-extras-section,
+.club-hero,
+.affiche-card,
+.media-card,
+.contact-card,
+.calendar-tour,
+.lfld-match-card {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  color: #0f172a !important;
+  backdrop-filter: blur(8px) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+}
+.lfld-match-card:hover {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.09) !important;
+}
+.lfld-match-card-title { color: #f59e0b !important; }
+.lfld-match-card-stage { color: #64748b !important; }
+.lfld-card-team-name { color: #0f172a !important; }
+.lfld-card-team-name:hover { color: #f59e0b !important; }
+.lfld-card-team.winner .lfld-card-team-name { color: #059669 !important; }
+.lfld-card-score {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+}
+.lfld-card-goal-pure { color: #0f172a !important; }
+.lfld-card-goal-empty { color: #94a3b8 !important; }
+.lfld-match-card-goals { border-top-color: #e2e8f0 !important; }
+.lfld-match-card-actions { border-top-color: #e2e8f0 !important; }
+.lfld-match-card-top { border-bottom-color: #e2e8f0 !important; }
+
+/* ============ 8. ТАБЛИЦЫ ============ */
+table {
+  background: rgba(255, 255, 255, 0.95) !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+th {
+  background: #f8fafc !important;
+  color: #64748b !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+td { color: #0f172a !important; border-bottom-color: rgba(226, 232, 240, 0.6) !important; }
+tbody tr:nth-child(even) td { background: rgba(248, 250, 252, 0.5) !important; }
+tbody tr:hover td { background: rgba(245, 158, 11, 0.06) !important; }
+tbody tr:nth-child(1) td:first-child { color: #f59e0b !important; }
+tbody tr:nth-child(2) td:first-child { color: #64748b !important; }
+tbody tr:nth-child(3) td:first-child { color: #b45309 !important; }
+.club-link { color: #0f172a !important; }
+.club-link:hover { color: #f59e0b !important; }
+.club-link strong { color: #0f172a !important; }
+.club-link:hover strong { color: #f59e0b !important; }
+.goals-cell { color: #b45309 !important; }
+.assist-cell { color: #059669 !important; }
+.yellow-cell { color: #d97706 !important; }
+.red-cell { color: #dc2626 !important; }
+.notice { color: #64748b !important; }
+
+/* ============ 9. МОДАЛКИ ============ */
+.modal-overlay { background: rgba(15, 23, 42, 0.5) !important; }
+.modal-content {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(226, 232, 240, 0.8) !important;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.18) !important;
+}
+.modal-content h2, .modal-content h3, .modal-content h4 { color: #0f172a !important; }
+.modal-close { color: #64748b !important; background: transparent !important; }
+.modal-close:hover { background: #f1f5f9 !important; color: #0f172a !important; }
+
+/* ============ 10. ФОРМЫ ============ */
+button, select, input, textarea {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+button:hover { background: #f1f5f9 !important; }
+input:focus, textarea:focus, select:focus {
+  outline: none !important;
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15) !important;
+}
+select option { background: #ffffff !important; color: #0f172a !important; }
+
+/* ============ 11. CALENDAR ============ */
+.calendar-tour-title { color: #f59e0b !important; border-bottom-color: #e2e8f0 !important; }
+
+/* ============ 12. КНОПКИ В ТАБЛИЦАХ ============ */
+table button {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+}
+table button:hover {
+  background: rgba(245, 158, 11, 0.12) !important;
+  border-color: #f59e0b !important;
+  color: #b45309 !important;
+}
+
+/* ============ 13. VK-POST-BADGE ============ */
+.vk-post-badge {
+  background: rgba(0, 119, 255, 0.1) !important;
+  color: #2563eb !important;
+  border-color: rgba(0, 119, 255, 0.35) !important;
+}
+.vk-post-badge:hover {
+  background: rgba(0, 119, 255, 0.18) !important;
+  border-color: rgba(0, 119, 255, 0.55) !important;
+  color: #1d4ed8 !important;
+}
+
+/* ============ 14. CLUB PROFILE ============ */
+.club-hero h1 { color: #0f172a !important; }
+.club-hero-sub { color: #64748b !important; }
+.club-hero-photo-placeholder {
+  background: #f8fafc !important;
+  color: #64748b !important;
+}
+.club-leadership-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-left: 3px solid #f59e0b !important;
+}
+.club-leadership-card .name { color: #0f172a !important; }
+.club-leadership-card .role { color: #f59e0b !important; }
+
+/* ============ 15. CLUB STATS BAR ============ */
+.club-stats-bar .csb-cell {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid #e2e8f0 !important;
+}
+.club-stats-bar .csb-val { color: #f59e0b !important; }
+.club-stats-bar .csb-lbl { color: #64748b !important; }
+
+/* ============ 16. АССИСТЫ ============ */
+.assist-table-row-club img,
+.assist-table-row-club .logo-plashka img {
+  filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.15)) !important;
+}
+.lfld-card-goal-assist {
+  background: rgba(16, 185, 129, 0.12) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #047857 !important;
+}
+
+/* ============ 17. НОМИНАЦИИ ============ */
+.award-title { color: #f59e0b !important; }
+.award-pill {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05) !important;
+}
+.award-pill:hover { border-color: #f59e0b !important; }
+.award-name { color: #0f172a !important; }
+.award-club { color: #64748b !important; }
+.award-empty { color: #64748b !important; }
+
+/* ============ 18. АФИША / КОНТАКТЫ ============ */
+.affiche-card { background: #ffffff !important; border-left-color: #f59e0b !important; }
+.affiche-card .affiche-title { color: #0f172a !important; }
+.affiche-card .affiche-date { color: #64748b !important; }
+.affiche-card .affiche-sub { color: #64748b !important; }
+.affiche-card .affiche-tour { color: #f59e0b !important; }
+.affiche-section-title { color: #0f172a !important; }
+.contact-card { background: #ffffff !important; }
+.contact-card .contact-name { color: #0f172a !important; }
+.contact-card .contact-role { color: #f59e0b !important; }
+.contact-card .contact-phone { color: #64748b !important; }
+.contact-card .contact-link { color: #2563eb !important; }
+
+/* ============ 19. МЕДИА ============ */
+.media-card { background: #ffffff !important; }
+.media-card-title { color: #0f172a !important; }
+.media-card-date { color: #64748b !important; }
+.media-tour { color: #f59e0b !important; }
+.media-card-score { color: #0f172a !important; }
+.media-empty { color: #64748b !important; background: rgba(248, 250, 252, 0.6) !important; border-color: #e2e8f0 !important; }
+.vk-community-card {
+  background: linear-gradient(135deg, rgba(0, 119, 255, 0.08), rgba(0, 119, 255, 0.03)) !important;
+  border-color: rgba(0, 119, 255, 0.3) !important;
+}
+.vk-community-title { color: #0f172a !important; }
+.vk-community-sub { color: #64748b !important; }
+
+/* ============ 20. FOOTER ============ */
+.site-footer {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-top: 1px solid #e2e8f0 !important;
+  color: #64748b !important;
+  backdrop-filter: blur(8px) !important;
+}
+.footer-links a { color: #64748b !important; }
+.footer-links a:hover { color: #f59e0b !important; }
+.footer-copy { color: #64748b !important; }
+.dev-credit { color: rgba(100, 116, 139, 0.6) !important; }
+.dev-credit a { color: rgba(100, 116, 139, 0.8) !important; }
+
+/* ============ 21. АДМИНКА ============ */
+.admin-topbar { border-bottom-color: #e2e8f0 !important; }
+.admin-topbar h2 { color: #0f172a !important; }
+.admin-card h3, .admin-extras-section h3 { color: #f59e0b !important; }
+.admin-card p, .admin-extras-section p { color: #64748b !important; }
+.form-group label { color: #64748b !important; }
+
+/* ============ 22. САЙДБАР ============ */
+.club-mini { background: transparent !important; border-color: #e2e8f0 !important; }
+.club-mini:hover { background: rgba(245, 158, 11, 0.12) !important; border-color: #f59e0b !important; }
+.logo-plashka { filter: drop-shadow(0 1px 3px rgba(15, 23, 42, 0.18)) !important; }
+
+/* ============================================================
+   ⚡ 23. КОМПАКТНЫЙ СЛАЙДЕР ГЛАВНОЙ + МЯГКИЕ ГРАНИЦЫ
+   ============================================================ */
+
+/* Общий контейнер главной hero-секции */
+.welcome-hero {
+  position: relative !important;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 21 / 9 !important;
+  max-height: 400px !important;
+  min-height: 220px !important;
+  overflow: hidden !important;
+  border-radius: 24px !important;
+  margin: 16px auto 28px !important;
+  background: linear-gradient(135deg, #0f172a, #1e293b) !important;
+  border: 1px solid rgba(226, 232, 240, 0.6) !important;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12),
+              0 2px 6px rgba(15, 23, 42, 0.06) !important;
+  /* ⚡ Мягкое затухание краёв (виньетка) */
+  isolation: isolate;
+}
+.welcome-hero::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+  z-index: 3 !important;
+  /* Виньетка по краям + мягкие углы */
+  box-shadow: inset 0 0 60px rgba(15, 23, 42, 0.35),
+              inset 0 0 20px rgba(15, 23, 42, 0.15) !important;
+  border-radius: 24px !important;
+  background: radial-gradient(ellipse at center,
+              transparent 55%,
+              rgba(15, 23, 42, 0.18) 100%) !important;
+}
+.welcome-slide {
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-color: #f1f5f9 !important;
+}
+/* Мобильная адаптация слайдера */
+@media (max-width: 900px) {
+  .welcome-hero {
+    aspect-ratio: 16 / 9 !important;
+    max-height: 280px !important;
+    min-height: 180px !important;
+    border-radius: 18px !important;
+    margin: 12px 8px 22px !important;
+  }
+  .welcome-hero::after { border-radius: 18px !important; }
+}
+@media (max-width: 480px) {
+  .welcome-hero {
+    max-height: 220px !important;
+    min-height: 140px !important;
+    border-radius: 14px !important;
+  }
+}
+
+/* Hero-carousel в турнире — аналогично компактный */
+.hero-carousel {
+  position: relative !important;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 21 / 9 !important;
+  max-height: 360px !important;
+  min-height: 200px !important;
+  overflow: hidden !important;
+  border-radius: 24px !important;
+  margin: 16px auto !important;
+  border: 1px solid rgba(226, 232, 240, 0.6) !important;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.1) !important;
+}
+.hero-slide {
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-color: #f1f5f9 !important;
+}
+@media (max-width: 900px) {
+  .hero-carousel { aspect-ratio: 16 / 9 !important; max-height: 260px !important; border-radius: 18px !important; }
+}
+
+/* ============================================================
+   ⚡ 24. КОМАНДНОЕ ФОТО — ВЫТЯНУТЫЙ ФОРМАТ (h-64/80/96)
+   ============================================================ */
+.club-hero-photo {
+  width: 100% !important;
+  height: 16rem !important;   /* h-64 = 256px */
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08) !important;
+  margin: 0 auto 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+}
+.club-hero-photo img {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  display: block !important;
+}
+@media (min-width: 640px) {
+  .club-hero-photo { height: 20rem !important; }  /* sm:h-80 = 320px */
+}
+@media (min-width: 768px) {
+  .club-hero-photo { height: 24rem !important; }  /* md:h-96 = 384px */
+}
+@media (max-width: 480px) {
+  .club-hero-photo { height: 14rem !important; border-radius: 14px !important; }
+}
+
+/* ============================================================
+   ⚡ 25. КРОППЕР-МОДАЛКА В АДМИНКЕ
+   ============================================================ */
+.crop-modal-content {
+  max-width: 780px !important;
+  width: 95% !important;
+  padding: 20px !important;
+}
+.crop-stage {
+  position: relative !important;
+  width: 100% !important;
+  background: #0f172a !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  margin-bottom: 14px !important;
+  user-select: none !important;
+  touch-action: none !important;
+}
+.crop-stage canvas {
+  display: block !important;
+  max-width: 100% !important;
+  height: auto !important;
+}
+.crop-overlay {
+  position: absolute !important;
+  inset: 0 !important;
+  pointer-events: none !important;
+}
+.crop-box {
+  position: absolute !important;
+  border: 2px solid #f59e0b !important;
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.55) !important;
+  cursor: move !important;
+  pointer-events: auto !important;
+  transition: box-shadow 0.15s ease !important;
+}
+.crop-box::before,
+.crop-box::after {
+  content: "" !important;
+  position: absolute !important;
+  background: rgba(245, 158, 11, 0.6) !important;
+}
+.crop-box::before { top: 33%; left: 0; right: 0; height: 1px; }
+.crop-box::after { top: 66%; left: 0; right: 0; height: 1px; }
+
+.crop-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.crop-toolbar label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.crop-toolbar input[type="range"] {
+  flex: 1;
+  min-width: 140px;
+  accent-color: #f59e0b;
+}
+.crop-toolbar .crop-zoom-val {
+  font-family: 'Russo One', sans-serif;
+  font-size: 12px;
+  color: #f59e0b;
+  min-width: 48px;
+  text-align: right;
+}
+.crop-hint {
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+  margin-top: 6px;
+  text-align: center;
+}
+
+/* Плашка с превью (готовая область) */
+.crop-preview-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 14px;
+}
+.crop-preview-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.crop-preview-img {
+  width: 160px;
+  height: 90px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.crop-preview-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ============================================================
+   ⚡ 26. СИМВОЛИЧЕСКАЯ СБОРНАЯ — принудительно видима
+   ============================================================ */
+#homeSymbolicSection {
+  display: block !important;
+}
+#homeSymbolicSection .symbolic-pitch {
+  margin: 0 auto !important;
+}
+@media (max-width: 768px) {
+  #homeSymbolicSection .symbolic-pitch {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}
