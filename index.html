@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Федерация Футбола г. Димитровграда</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -112,16 +115,17 @@
     #toggle-roster-btn:active { transform: translateY(0); }
   </style>
 
-  <script src="teamsData.js"></script>
-  <script src="historyData.js"></script>
-  <script src="allTournamentsMasterData.js"></script>
-  <script src="banner.js"></script>
+  <script src="lfld-storage.js"></script>
+  <script src="teamsData.js?v=3.0"></script>
+  <script src="historyData.js?v=3.0"></script>
+  <script src="allTournamentsMasterData.js?v=3.0"></script>
+  <script src="banner.js?v=3.0"></script>
 
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="ai-parser.css">
-  <link rel="stylesheet" href="bracket.css">
-  <link rel="stylesheet" href="welcome.css">
-  <link rel="stylesheet" href="lfld-v2.css">
+  <link rel="stylesheet" href="style.css?v=3.0">
+  <link rel="stylesheet" href="ai-parser.css?v=3.0">
+  <link rel="stylesheet" href="bracket.css?v=3.0">
+  <link rel="stylesheet" href="welcome.css?v=3.0">
+  <link rel="stylesheet" href="lfld-v2.css?v=3.0">
 </head>
 <body>
   <div id="site-bg-layer" style="background-image: url('bg-pattern.jpg');"></div>
@@ -149,7 +153,6 @@
   </div>
 
   <div class="container">
-    <!-- ⚡ САЙДБАР — только навигация и турниры. Блок «КЛУБЫ ФЕДЕРАЦИИ» удалён -->
     <div class="sidebar" id="mainSidebar">
       <div class="sidebar-tourneys">
         <div class="menu-group-title">Навигация</div>
@@ -639,13 +642,20 @@
       return t;
     }
 
+    /* ⚡ ПРИОРИТЕТ: данные из allTournamentsMasterData.js (LFLD_MASTER_DB)
+       — источник правды. localStorage — только черновик админки.
+       При загрузке сначала берём из файла, потом накладываем черновик. */
     var tournamentsData = (function() {
       var data = {};
       var saved = null;
       try { saved = JSON.parse(localStorage.getItem('ff_tournaments') || 'null'); } catch(e) {}
+
+      /* 1) СНАЧАЛА — из файла базы (свежая версия с GitHub) */
       Object.keys(DEFAULT_TOURNAMENTS).forEach(function(k) {
         data[k] = normalizeTournament(JSON.parse(JSON.stringify(DEFAULT_TOURNAMENTS[k])));
       });
+
+      /* 2) ПОТОМ — черновик из localStorage (если есть) */
       if (saved && typeof saved === 'object') {
         Object.keys(saved).forEach(function(k) {
           if (!data[k]) { data[k] = normalizeTournament(saved[k]); return; }
@@ -775,9 +785,7 @@
     function escapeAttr(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
     function makeMatchId(tk, m) { return (tk || '') + '_' + (m.tour || m.round || '') + '_' + (m.t1 || '') + '_' + (m.t2 || ''); }
 
-    /* ============================================================
-       ⚡ СПОЙЛЕР СОСТАВА — железобетонная версия
-       ============================================================ */
+    /* ⚡ СПОЙЛЕР СОСТАВА — железобетонная версия */
     var ROSTER_LIMIT = 6;
     var ROSTER_ROW_EXTRA_CLASS = 'roster-extra-row';
 
@@ -1750,8 +1758,6 @@
       c.innerHTML = html;
       c.querySelectorAll('.dynamic-tourney-btn').forEach(function(btn) { btn.onclick = function() { enterTournament(this.getAttribute('data-key')); }; });
     }
-
-    /* ⚡ renderSidebar — только турниры + список «Мой клуб» в шапке. Блок клубов УДАЛЁН */
     function renderSidebar() {
       try {
         renderTourneyButtons();
@@ -1989,18 +1995,18 @@
     window.toggleAdminPanel = toggleAdminPanel;
   </script>
 
-  <script src="database.js"></script>
-  <script src="auth.js"></script>
-  <script src="rosters.js"></script>
-  <script src="player-cabinet.js"></script>
-  <script src="admin-extras.js"></script>
-  <script src="lfld-v2.js"></script>
-  <script src="totw-public.js"></script>
-  <script src="cup-metallist.js"></script>
-  <script src="crop-enhanced.js"></script>
-  <script src="site-blur-bg.js"></script>
-  <script src="sidebar-and-dates-fix.js"></script>
-  <script src="github-sync.js"></script>
+  <script src="database.js?v=3.0"></script>
+  <script src="auth.js?v=3.0"></script>
+  <script src="rosters.js?v=3.0"></script>
+  <script src="player-cabinet.js?v=3.0"></script>
+  <script src="admin-extras.js?v=3.0"></script>
+  <script src="lfld-v2.js?v=3.0"></script>
+  <script src="totw-public.js?v=3.0"></script>
+  <script src="cup-metallist.js?v=3.0"></script>
+  <script src="crop-enhanced.js?v=3.0"></script>
+  <script src="site-blur-bg.js?v=3.0"></script>
+  <script src="sidebar-and-dates-fix.js?v=3.0"></script>
+  <script src="github-sync.js?v=3.0"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {

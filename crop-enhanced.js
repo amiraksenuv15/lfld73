@@ -1,13 +1,30 @@
 /* ============================================================
-   crop-enhanced.js — Cropper.js интеграция.
+   crop-enhanced.js — Cropper.js интеграция с автосжатием.
    Обеспечивает window.__openCropModal(src, aspectRatio, onSave, opts)
-   Без самодельного canvas-кода. Работает через библиотеку Cropper.js 1.6.1.
+   где opts:
+     { title?, outW?, outH?, quality? }
+   По умолчанию: outW = 1000, quality = 0.75 (жёсткое сжатие фото).
    ============================================================ */
 (function () {
   'use strict';
 
   var currentCropper = null;
   var currentOnSave = null;
+
+  /* ---------- Параметры сжатия по умолчанию ---------- */
+  var DEFAULT_MAX_W = 1000;      /* командное фото: не более 1000px по ширине */
+  var DEFAULT_QUALITY = 0.75;    /* ~80–130 КБ JPEG */
+
+  /* Спец-профили для разных типов фото */
+  var PRESET_TEAM = { maxW: 1000, quality: 0.75 };     /* командное фото 16:7 */
+  var PRESET_BANNER = { maxW: 1600, quality: 0.75 };   /* баннер главной 21:9 */
+  var PRESET_PLAYER = { maxW: 240, quality: 0.70 };    /* фото игрока 3:4 */
+
+  window.__CROP_PRESETS = {
+    TEAM: PRESET_TEAM,
+    BANNER: PRESET_BANNER,
+    PLAYER: PRESET_PLAYER
+  };
 
   function ready(fn) {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fn);
@@ -17,8 +34,6 @@
   function ensureModal() {
     var modal = document.getElementById('photo-cropper-modal');
     if (modal) return modal;
-
-    // Fallback — если модалку не вставили в HTML, создаём её динамически
     modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.id = 'photo-cropper-modal';
@@ -59,25 +74,30 @@
 
     modal.style.display = 'flex';
     currentOnSave = onSave;
+    modal._cropOpts = {
+      outW: opts.outW || DEFAULT_MAX_W,
+      outH: opts.outH || 0,
+      quality: opts.quality != null ? opts.quality : DEFAULT_QUALITY,
+      aspectRatio: aspectRatio
+    };
 
-    // Сброс предыдущего инстанса
     if (currentCropper) { currentCropper.destroy(); currentCropper = null; }
 
     image.onload = function () {
       currentCropper = new Cropper(image, {
         aspectRatio: aspectRatio,
-        viewMode: 1,               // рамка не выходит за пределы картинки
-        dragMode: 'move',          // перетаскивание самого изображения
+        viewMode: 1,
+        dragMode: 'move',
         autoCropArea: 0.9,
         restore: false,
         guides: true,
         center: true,
         highlight: false,
         background: true,
-        cropBoxMovable: true,      // рамку можно двигать
-        cropBoxResizable: true,    // рамку можно ресайзить
+        cropBoxMovable: true,
+        cropBoxResizable: true,
         toggleDragModeOnDblclick: false,
-        preview: previewBox,       // живой предпросмотр
+        preview: previewBox,
         responsive: true,
         checkOrientation: false
       });
@@ -91,15 +111,27 @@
   window.__openCropModal = openCropModal;
 
   /* ============================================================
-     Кнопка «Сохранить»
+     Кнопка «Сохранить» — жёсткое ограничение размера и качества
      ============================================================ */
   function onSave() {
     if (!currentCropper) return;
 
-    // Целевые размеры под пропорции 16:7 (для командного фото h-80/h-96/h-440 и т.п.)
-    // 1400×612 ≈ 2.29:1 (≈16:7). При 21:9 тоже неплохо.
-    var targetW = 1400;
-    var targetH = 612;
+    var modal = document.getElementById('photo-cropper-modal');
+    var cropOpts = (modal && modal._cropOpts) || {
+      outW: DEFAULT_MAX_W,
+      outH: 0,
+      quality: DEFAULT_QUALITY,
+      aspectRatio: 16 / 9
+    };
+
+    var targetW = Math.min(cropOpts.outW || DEFAULT_MAX_W, 1600);
+    var targetH;
+    if (cropOpts.outH && cropOpts.outH > 0) {
+      targetH = Math.min(cropOpts.outH, 1200);
+    } else {
+      targetH = Math.round(targetW / cropOpts.aspectRatio);
+    }
+    var quality = Math.max(0.5, Math.min(0.9, cropOpts.quality || DEFAULT_QUALITY));
 
     var canvas = currentCropper.getCroppedCanvas({
       width: targetW,
@@ -108,19 +140,23 @@
       imageSmoothingQuality: 'high'
     });
 
-    var croppedDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+    var croppedDataUrl = canvas.toDataURL('image/jpeg', quality);
+
+    var sizeKB = Math.round((croppedDataUrl.length * 3) / 4 / 1024);
+    console.log('[crop-enhanced] экспорт: ' + targetW + 'x' + targetH + ', quality=' + quality + ', ~' + sizeKB + ' КБ');
 
     if (typeof currentOnSave === 'function') {
       try { currentOnSave(croppedDataUrl); }
-      catch (e) { console.error('[crop onSave]', e); }
+      catch (e) {
+        console.error('[crop onSave]', e);
+        alert('Ошибка при сохранении: ' + (e && e.message ? e.message : e));
+      }
     }
 
-    // Обновление картинки на странице, если открыт профиль команды
     try {
       var heroImg = document.querySelector('.club-hero-photo img');
       if (heroImg && typeof currentTeamIdForPhoto === 'string') {
-        var teamId = currentTeamIdForPhoto;
-        var sel = document.querySelector('.team-cover-photo[data-team="' + teamId + '"]');
+        var sel = document.querySelector('.team-cover-photo[data-team="' + currentTeamIdForPhoto + '"]');
         if (sel) sel.src = croppedDataUrl;
       }
     } catch (e) {}
@@ -156,5 +192,5 @@
   ready(bind);
   window.addEventListener('load', bind);
 
-  console.log('[crop-enhanced] загружен — Cropper.js 1.6.1');
+  console.log('[crop-enhanced] загружен — Cropper.js 1.6.1 + автосжатие (max 1000px, JPEG 0.75)');
 })();

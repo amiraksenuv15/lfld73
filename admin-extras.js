@@ -1,8 +1,10 @@
 /* ============================================================
-   admin-extras.js — админка ЛФЛД (v5.0)
-   - ТОТW: 8 ФИКСИРОВАННЫХ позиций + автокомплит строго по текущему турниру
-   - Кроппер делегируется в Cropper.js (см. crop-enhanced.js)
-   - AI-парсинг, протоколы, галерея, организаторы
+   admin-extras.js — админка ЛФЛД (v6.0)
+   - TOTW: 8 фиксированных позиций + автокомплит по текущему турниру
+   - Кроппер делегируется в Cropper.js с автосжатием (1000px / 0.75)
+   - Галерея клуба: сжатие до 1000px / 0.75
+   - Блок «Управление кэшем устройства» с кнопкой сброса
+   - AI-парсинг, протоколы, организаторы, конструктор
    ============================================================ */
 (function () {
   'use strict';
@@ -21,7 +23,7 @@
   function norm(s) { return String(s || '').toLowerCase().replace(/ё/g,'е').trim(); }
 
   /* ============================================================
-     ⚡ 8 ФИКСИРОВАННЫХ ПОЗИЦИЙ СБОРНОЙ ТУРА (формат 8х8)
+     8 ФИКСИРОВАННЫХ ПОЗИЦИЙ СБОРНОЙ ТУРА (формат 8х8)
      ============================================================ */
   var TOTW_POSITIONS = [
     { code: 'ВРТ', label: 'Вратарь',              short: 'ВРТ' },
@@ -47,8 +49,7 @@
   };
 
   /* ============================================================
-     ⚡ КРОППЕР — делегируется в Cropper.js (см. crop-enhanced.js)
-     window.__openCropModal(src, aspectRatio, onSave, opts)
+     КРОППЕР — делегируется в Cropper.js с автосжатием
      ============================================================ */
   function openCropModal(imageSrc, aspectRatio, onSave, opts) {
     if (typeof window.__openCropModal === 'function') {
@@ -57,7 +58,6 @@
     console.warn('[admin-extras] Cropper.js недоступен — проверьте подключение CDN в <head>');
     alert('Кроппер недоступен: библиотека Cropper.js не загружена.');
   }
-  // window.__openCropModal обеспечивает crop-enhanced.js — здесь его НЕ перезаписываем.
 
   /* ============================================================
      КЛУБЫ
@@ -78,13 +78,17 @@
   function applyBackground() { if (window.bannerManager && window.bannerManager.applyBackground) window.bannerManager.applyBackground(); }
 
   /* ============================================================
-     ГЛАВНОЕ ФОТО КОМАНДЫ
+     ГЛАВНОЕ ФОТО КОМАНДЫ — с жёстким сжатием (1000px / 0.75)
      ============================================================ */
   function getClubMainPhotoMap() { try { return JSON.parse(localStorage.getItem('ff_club_main_photo') || '{}'); } catch(e) { return {}; } }
   function setClubMainPhoto(club, url) {
     var d = getClubMainPhotoMap();
     if (url) d[club] = url; else delete d[club];
-    localStorage.setItem('ff_club_main_photo', JSON.stringify(d));
+    try {
+      localStorage.setItem('ff_club_main_photo', JSON.stringify(d));
+    } catch (e) {
+      console.warn('[club-photo] Не удалось сохранить карту фото:', e);
+    }
   }
   function saveClubMainPhotoFromForm() {
     var club = val('cmpClubSelect'); if (!club) return alert('Выберите клуб');
@@ -99,7 +103,11 @@
           setClubMainPhoto(club, cropped);
           alert('Фото команды сохранено!');
           renderAdminExtras();
-        }, { title: 'Кадрирование командного фото (16:7)', outW: 1400, outH: 612 });
+        }, {
+          title: 'Кадрирование командного фото (16:7, сжатие до 1000px)',
+          outW: 1000,
+          quality: 0.75
+        });
       };
       reader.readAsDataURL(f);
     } else if (urlInput) {
@@ -121,7 +129,7 @@
     var selected = clubsData[0] ? clubsData[0].name : '';
     var current = map[selected] || '';
     return '<div class="admin-extras-section"><h3>🖼️ Главное командное фото</h3>' +
-      '<p>Фото в формате 16:7 для страницы команды. При загрузке файла — откроется кроппер Cropper.js с живым превью.</p>' +
+      '<p>Фото автоматически сжимается до <strong>1000px по ширине, JPEG 0.75</strong> (80–130 КБ). Переполнение хранилища исключено.</p>' +
       '<div class="form-row">' +
         '<div class="form-group"><label>Клуб:</label><select id="cmpClubSelect" onchange="window.__cmpOnChange()">' + clubOpts + '</select></div>' +
         '<div class="form-group"><label>Текущее фото:</label><div id="cmpCurrentPreview">' +
@@ -147,7 +155,7 @@
   window.__cmpClear = clearClubMainPhoto;
 
   /* ============================================================
-     ⚡ ИНДЕКС ИГРОКОВ СТРОГО ПО ТЕКУЩЕМУ ТУРНИРУ
+     ИНДЕКС ИГРОКОВ СТРОГО ПО ТЕКУЩЕМУ ТУРНИРУ
      ============================================================ */
   var TOURNEY_MASTER_MAP = {
     '5x5':               'tournament_5x5',
@@ -348,7 +356,7 @@
 
     return '<div class="admin-extras-section">' +
       '<h3>⭐ Символическая сборная тура · 8 фиксированных позиций</h3>' +
-      '<p>Вводите фамилию — подсказки показывают только игроков <strong>текущего турнира</strong> с актуальным клубом и эмблемой. Схема: ВРТ · 2 защитника · 2 полузащитника · 2 фланговых · 1 нападающий.</p>' +
+      '<p>Вводите фамилию — подсказки показывают только игроков <strong>текущего турнира</strong> с актуальным клубом и эмблемой.</p>' +
       '<div class="form-row">' +
         '<div class="form-group"><label>Турнир:</label><select id="symTourneySelect" onchange="window.__symChangeTourney(this.value)">' + tourneyOpts + '</select></div>' +
         '<div class="form-group"><label>Тур:</label><select id="symRoundSelect" onchange="window.__symChangeRound(this.value)">' + tourOpts + '</select></div>' +
@@ -529,12 +537,17 @@
     var all = {};
     try { all = JSON.parse(localStorage.getItem('ff_symbolic_teams') || '{}'); } catch(e) {}
     all[tk + '|' + round] = { tourneyKey: tk, round: round, slots: slots };
-    localStorage.setItem('ff_symbolic_teams', JSON.stringify(all));
+    try {
+      localStorage.setItem('ff_symbolic_teams', JSON.stringify(all));
+    } catch (e) {
+      console.warn('[symbolic] Ошибка сохранения:', e);
+      alert('Ошибка сохранения: переполнено хранилище браузера. Очистите кэш в блоке «Управление кэшем устройства».');
+    }
     if (window.database && window.database.saveSymbolicTeam) window.database.saveSymbolicTeam(tk, round, slots);
   }
 
   /* ============================================================
-     ФОТО КЛУБОВ (галерея)
+     ФОТО КЛУБОВ (галерея) — сжатие до 1000px / 0.75
      ============================================================ */
   function uploadTeamPhotos() {
     var club = val('photoClubSelect'); var tourney = val('photoTourneySelect'); var caption = val('photoCaption');
@@ -543,15 +556,21 @@
     if (!input || !input.files.length) return alert('Выберите фотографии');
     if (!window.teamPhotos) window.teamPhotos = {};
     if (!window.teamPhotos[club]) window.teamPhotos[club] = [];
-    var files = Array.from(input.files); var done = 0, added = 0;
+    var files = Array.from(input.files); var done = 0, added = 0, failed = 0;
     files.forEach(function (f) {
       if (!/^image\//.test(f.type)) { done++; return; }
-      compressImage(f, 1600, 0.8, function (dataUrl) {
-        window.teamPhotos[club].push({ url: dataUrl, tourney: tourney, caption: caption });
-        added++; done++;
+      compressImage(f, 1000, 0.75, function (dataUrl) {
+        try {
+          window.teamPhotos[club].push({ url: dataUrl, tourney: tourney, caption: caption });
+          added++;
+        } catch (e) {
+          failed++;
+          console.warn('[gallery] Ошибка добавления:', e);
+        }
+        done++;
         if (done === files.length) {
-          if (window.saveTeamPhotos) window.saveTeamPhotos();
-          alert('Загружено фото: ' + added);
+          try { if (window.saveTeamPhotos) window.saveTeamPhotos(); } catch (e) { failed++; }
+          alert('Загружено фото: ' + added + (failed ? ', ошибок: ' + failed : ''));
           input.value = '';
           var capEl = q('photoCaption'); if (capEl) capEl.value = '';
           renderAdminExtras();
@@ -569,7 +588,12 @@
         c.width = Math.round(img.width * s);
         c.height = Math.round(img.height * s);
         c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        cb(c.toDataURL('image/jpeg', quality));
+        try {
+          cb(c.toDataURL('image/jpeg', quality));
+        } catch (err) {
+          console.warn('[compressImage]', err);
+          cb(e.target.result);
+        }
       };
       img.onerror = function () { cb(e.target.result); };
       img.src = e.target.result;
@@ -993,6 +1017,7 @@
     var clubOpts = clubsData.map(function (c) { return '<option value="' + c.name + '">' + c.name + '</option>'; }).join('');
     var tourneyOpts = '<option value="">— все турниры —</option>' + Object.keys(tournamentsData).map(function (k) { return '<option value="' + k + '">' + tournamentsData[k].title + '</option>'; }).join('');
     return '<div class="admin-extras-section"><h3>📷 Галерея матчей клуба</h3>' +
+      '<p>Фото автоматически сжимаются до <strong>1000px, JPEG 0.75</strong>.</p>' +
       '<div class="form-row"><div class="form-group"><label>Клуб:</label><select id="photoClubSelect">' + clubOpts + '</select></div>' +
       '<div class="form-group"><label>Турнир:</label><select id="photoTourneySelect">' + tourneyOpts + '</select></div></div>' +
       '<div class="form-row"><div class="form-group"><label>Фото:</label><input type="file" id="teamPhotosInput" accept="image/*" multiple></div>' +
@@ -1028,7 +1053,7 @@
     } else thumbs = '<p style="color:#64748b;font-style:italic;margin:12px 0;">Слайдов нет.</p>';
     return '<div class="admin-extras-section"><h3>🖼️ Галерея главной</h3>' +
       '<div class="form-row"><div class="form-group"><label>URL слайда:</label><div style="display:flex;gap:8px;"><input type="text" id="bannerUrlInput" placeholder="https://..." style="flex:1;"><button type="button" id="bannerUrlAddBtn" class="btn-success">+ Добавить</button></div></div></div>' +
-      '<div class="form-row"><div class="form-group"><label>Или файл (откроется Cropper.js 21:9):</label><input type="file" id="bannerFileInput" accept="image/*"></div></div>' +
+      '<div class="form-row"><div class="form-group"><label>Или файл (Cropper.js 21:9, сжатие 1600px):</label><input type="file" id="bannerFileInput" accept="image/*"></div></div>' +
       '<div class="form-row"><div class="form-group"><label>Интервал:</label><select id="bannerIntervalSelect">' +
         '<option value="3000"' + (interval === 3000 ? ' selected' : '') + '>3 сек</option>' +
         '<option value="4000"' + (interval === 4000 ? ' selected' : '') + '>4 сек</option>' +
@@ -1037,6 +1062,62 @@
   }
   window.__bannerToggle = function (i, v) { if (window.bannerManager) window.bannerManager.toggleSlide(i, v); };
   window.__bannerRemove = function (i) { if (!confirm('Удалить слайд?')) return; if (window.bannerManager) window.bannerManager.removeSlide(i); renderAdminExtras(); };
+
+  /* ============================================================
+     УПРАВЛЕНИЕ КЭШЕМ УСТРОЙСТВА — сброс + перезагрузка
+     ============================================================ */
+  function renderCacheResetBlock() {
+    return '<div class="admin-extras-section cache-reset-section">' +
+      '<h3>🔄 Управление кэшем устройства</h3>' +
+      '<p>Если на телефоне или другом устройстве отображается устаревшая база данных, а на компьютере — свежая, нажмите кнопку ниже. ' +
+      'Локальный кэш будет полностью очищен, и сайт загрузит свежую базу с GitHub.</p>' +
+      '<button type="button" id="reset-cache-btn" class="btn-danger" style="width:100%; padding:14px 20px !important; font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.05em;">' +
+        '🔄 Сбросить кэш устройства и обновить базу с GitHub' +
+      '</button>' +
+      '<div class="ai-status" id="cache-reset-status" style="margin-top:12px;"></div>' +
+      '<p style="margin-top:14px; font-size:11px; color:#94a3b8; font-style:italic;">' +
+        'Кнопка очищает <strong>только это устройство</strong>. Другие устройства не затрагиваются.' +
+      '</p>' +
+      '</div>';
+  }
+
+  function resetDeviceCache() {
+    var st = q('cache-reset-status');
+    var btn = q('reset-cache-btn');
+    if (btn) { btn.disabled = true; btn.innerText = '⏳ Сброс...'; }
+    if (st) { st.className = 'ai-status show info'; st.innerText = 'Очищаем локальный кэш...'; }
+
+    try {
+      if (typeof window.__fullCacheReset === 'function') {
+        var n = window.__fullCacheReset();
+        if (st) st.innerText = 'Очищено ключей: ' + n + '. Перезагружаем страницу...';
+      } else {
+        /* Fallback — если lfld-storage.js не подключён */
+        var keys = [
+          'ff_tournaments','ff_database_v1','ff_master_imported_v3',
+          'ff_symbolic_teams','ff_cup_metallist_rosters','ff_club_main_photo',
+          'ff_custom_clubs','ff_organizers','hero_slider_photos',
+          'ff_welcome_photos','ff_welcome_interval','lfld_site_background',
+          'lfld_site_blur_bg','bannerSlides','ff_team_photos',
+          'ff_tournament_posters','match_vk_albums','ff_streams','ff_vk_live'
+        ];
+        keys.forEach(function (k) { try { localStorage.removeItem(k); } catch (e) {} });
+        if (st) st.innerText = 'Кэш очищен (fallback). Перезагружаем...';
+      }
+    } catch (e) {
+      console.warn('[cache-reset]', e);
+    }
+
+    /* Принудительная перезагрузка с обходом кэша */
+    setTimeout(function () {
+      try {
+        window.location.reload(true);
+      } catch (e) {
+        window.location.href = window.location.pathname + '?_=' + Date.now();
+      }
+    }, 400);
+  }
+  window.__resetDeviceCache = resetDeviceCache;
 
   /* ============================================================
      AI-БЛОК / ОРГАНИЗАТОРЫ / КОНСТРУКТОР
@@ -1194,7 +1275,7 @@
       '<div class="form-group"><label>Позиция</label><select id="pePos">' +
         ['ВРТ','ЗАЩ','ПЗ','НАП','УНИ'].map(function (x) { return '<option value="' + x + '"' + (p.position === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') +
       '</select></div></div>';
-    html += '<div class="form-group"><label>Фото игрока (3:4, откроется Cropper.js)</label><div style="display:flex;gap:14px;align-items:center;">' +
+    html += '<div class="form-group"><label>Фото игрока (3:4, сжатие до 240px)</label><div style="display:flex;gap:14px;align-items:center;">' +
       '<div id="pePhotoPreview" style="width:90px;height:120px;border-radius:8px;overflow:hidden;background:#0f172a;border:1px solid #334155;display:flex;align-items:center;justify-content:center;">' +
         (p.photo ? '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover;">' : '<span style="font-size:34px;opacity:0.4;">👤</span>') +
       '</div><div style="flex:1;"><input type="file" id="pePhotoFile" accept="image/*"><button type="button" class="btn-danger" style="margin-top:8px;padding:5px 12px!important;font-size:11px;" onclick="window.__clearPlayerPhoto(\'' + escapeAttr(playerId) + '\')">Удалить фото</button></div></div></div>';
@@ -1214,7 +1295,11 @@
         openCropModal(e.target.result, 3 / 4, function (cropped) {
           DB.updatePlayer(playerId, { photo: cropped });
           var prev = q('pePhotoPreview'); if (prev) prev.innerHTML = '<img src="' + cropped + '" style="width:100%;height:100%;object-fit:cover;">';
-        }, { title: 'Кадрирование фото игрока (3:4)', outW: 480, outH: 640 });
+        }, {
+          title: 'Кадрирование фото игрока (3:4, сжатие до 240px)',
+          outW: 240,
+          quality: 0.70
+        });
       };
       reader.readAsDataURL(f);
     };
@@ -1264,7 +1349,11 @@
           window.bannerManager.addSlide(cropped);
           renderAdminExtras();
           alert('Баннер добавлен');
-        }, { title: 'Кадрирование баннера (21:9)', outW: 1920, outH: 823 });
+        }, {
+          title: 'Кадрирование баннера (21:9, сжатие до 1600px)',
+          outW: 1600,
+          quality: 0.75
+        });
       };
       reader.readAsDataURL(f);
       this.value = '';
@@ -1300,6 +1389,10 @@
 
     var orgA = q('orgAddBtn'); if (orgA) orgA.onclick = addOrganizer;
 
+    /* ⚡ Кнопка сброса кэша устройства */
+    var resetBtn = q('reset-cache-btn');
+    if (resetBtn) resetBtn.onclick = resetDeviceCache;
+
     setTimeout(function () {
       renderExistingPhotos();
       renderSymSlotsList();
@@ -1330,7 +1423,8 @@
       renderTeamPhotosBlock() +
       renderAiBlock() +
       renderOrganizersBlock() +
-      renderConstructorBlock();
+      renderConstructorBlock() +
+      renderCacheResetBlock();   /* ⚡ блок в самом низу админки */
     bindEvents();
     var fbT = q('fbTourney');
     if (fbT && tournamentsData[fbT.value]) updateFbTeams();
@@ -1343,5 +1437,5 @@
   loadCustomClubs();
   applyBackground();
   if (q('view-admin') && q('view-admin').style.display === 'block') renderAdminExtras();
-  console.log('[admin-extras] загружен — 8 фикс. позиций TOTW + Cropper.js кроппер');
+  console.log('[admin-extras] загружен — автосжатие + сброс кэша устройства');
 })();
