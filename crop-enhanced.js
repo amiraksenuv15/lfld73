@@ -16,9 +16,9 @@
   var DEFAULT_QUALITY = 0.75;    /* ~80–130 КБ JPEG */
 
   /* Спец-профили для разных типов фото */
-  var PRESET_TEAM = { maxW: 1000, quality: 0.75 };     /* командное фото 16:7 */
+  var PRESET_TEAM   = { maxW: 1000, quality: 0.75 };   /* командное фото 16:7 */
   var PRESET_BANNER = { maxW: 1600, quality: 0.75 };   /* баннер главной 21:9 */
-  var PRESET_PLAYER = { maxW: 240, quality: 0.70 };    /* фото игрока 3:4 */
+  var PRESET_PLAYER = { maxW: 240,  quality: 0.70 };   /* фото игрока 3:4 */
 
   window.__CROP_PRESETS = {
     TEAM: PRESET_TEAM,
@@ -34,6 +34,8 @@
   function ensureModal() {
     var modal = document.getElementById('photo-cropper-modal');
     if (modal) return modal;
+
+    /* Fallback — если модалку не вставили в HTML, создаём её динамически */
     modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.id = 'photo-cropper-modal';
@@ -124,6 +126,7 @@
       aspectRatio: 16 / 9
     };
 
+    /* Ограничиваем максимальную ширину жёстко */
     var targetW = Math.min(cropOpts.outW || DEFAULT_MAX_W, 1600);
     var targetH;
     if (cropOpts.outH && cropOpts.outH > 0) {
@@ -153,6 +156,7 @@
       }
     }
 
+    /* Мгновенное обновление картинки на сайте, если открыт профиль команды */
     try {
       var heroImg = document.querySelector('.club-hero-photo img');
       if (heroImg && typeof currentTeamIdForPhoto === 'string') {

@@ -1,9 +1,12 @@
 /* ============================================================
-   admin-extras.js — админка ЛФЛД (v6.0)
+   admin-extras.js — админка ЛФЛД (v7.0)
    - TOTW: 8 фиксированных позиций + автокомплит по текущему турниру
    - Кроппер делегируется в Cropper.js с автосжатием (1000px / 0.75)
    - Галерея клуба: сжатие до 1000px / 0.75
    - Блок «Управление кэшем устройства» с кнопкой сброса
+   - ⚡ Единый реестр фото через lfld-media.js:
+     * командное фото → lfldMedia.setTeamPhoto(club, dataUrl)
+     * фото игрока → lfldMedia.setPlayerPhoto(id/fio, dataUrl)
    - AI-парсинг, протоколы, организаторы, конструктор
    ============================================================ */
 (function () {
@@ -78,18 +81,23 @@
   function applyBackground() { if (window.bannerManager && window.bannerManager.applyBackground) window.bannerManager.applyBackground(); }
 
   /* ============================================================
-     ГЛАВНОЕ ФОТО КОМАНДЫ — с жёстким сжатием (1000px / 0.75)
+     ГЛАВНОЕ ФОТО КОМАНДЫ — через единый реестр lfld-media.js
      ============================================================ */
-  function getClubMainPhotoMap() { try { return JSON.parse(localStorage.getItem('ff_club_main_photo') || '{}'); } catch(e) { return {}; } }
+  function getClubMainPhotoMap() {
+    try { return JSON.parse(localStorage.getItem('ff_club_main_photo') || '{}'); } catch(e) { return {}; }
+  }
   function setClubMainPhoto(club, url) {
-    var d = getClubMainPhotoMap();
-    if (url) d[club] = url; else delete d[club];
-    try {
-      localStorage.setItem('ff_club_main_photo', JSON.stringify(d));
-    } catch (e) {
-      console.warn('[club-photo] Не удалось сохранить карту фото:', e);
+    /* ⚡ Единая точка сохранения — синхронизирует localStorage + LFLD_MASTER_DB.teamPhotos */
+    if (window.lfldMedia && window.lfldMedia.setTeamPhoto) {
+      window.lfldMedia.setTeamPhoto(club, url);
+    } else {
+      /* Fallback на старую логику */
+      var d = getClubMainPhotoMap();
+      if (url) d[club] = url; else delete d[club];
+      try { localStorage.setItem('ff_club_main_photo', JSON.stringify(d)); } catch (e) {}
     }
   }
+
   function saveClubMainPhotoFromForm() {
     var club = val('cmpClubSelect'); if (!club) return alert('Выберите клуб');
     var fileInput = q('cmpFileInput'); var urlInput = (val('cmpUrlInput') || '').trim();
@@ -127,9 +135,11 @@
     var clubOpts = clubsData.map(function (c) { return '<option value="' + c.name.replace(/"/g, '&quot;') + '">' + c.name + '</option>'; }).join('');
     var map = getClubMainPhotoMap();
     var selected = clubsData[0] ? clubsData[0].name : '';
-    var current = map[selected] || '';
+    var current = (window.lfldMedia && window.lfldMedia.getTeamPhoto)
+      ? (window.lfldMedia.getTeamPhoto(selected) || '')
+      : (map[selected] || '');
     return '<div class="admin-extras-section"><h3>🖼️ Главное командное фото</h3>' +
-      '<p>Фото автоматически сжимается до <strong>1000px по ширине, JPEG 0.75</strong> (80–130 КБ). Переполнение хранилища исключено.</p>' +
+      '<p>Фото автоматически сжимается до <strong>1000px по ширине, JPEG 0.75</strong> (80–130 КБ). Сохраняется в единый реестр и публикуется на GitHub.</p>' +
       '<div class="form-row">' +
         '<div class="form-group"><label>Клуб:</label><select id="cmpClubSelect" onchange="window.__cmpOnChange()">' + clubOpts + '</select></div>' +
         '<div class="form-group"><label>Текущее фото:</label><div id="cmpCurrentPreview">' +
@@ -146,9 +156,14 @@
   }
   window.__cmpOnChange = function () {
     var club = val('cmpClubSelect');
-    var map = getClubMainPhotoMap();
+    var url = '';
+    if (window.lfldMedia && window.lfldMedia.getTeamPhoto) {
+      url = window.lfldMedia.getTeamPhoto(club) || '';
+    } else {
+      var map = getClubMainPhotoMap();
+      url = map[club] || '';
+    }
     var prev = q('cmpCurrentPreview'); if (!prev) return;
-    var url = map[club] || '';
     prev.innerHTML = url ? '<img src="' + url + '" style="width:180px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #334155;">' : '<span style="color:#64748b;font-style:italic;font-size:12px;">Не загружено</span>';
   };
   window.__cmpSave = saveClubMainPhotoFromForm;
@@ -1092,11 +1107,10 @@
         var n = window.__fullCacheReset();
         if (st) st.innerText = 'Очищено ключей: ' + n + '. Перезагружаем страницу...';
       } else {
-        /* Fallback — если lfld-storage.js не подключён */
         var keys = [
           'ff_tournaments','ff_database_v1','ff_master_imported_v3',
           'ff_symbolic_teams','ff_cup_metallist_rosters','ff_club_main_photo',
-          'ff_custom_clubs','ff_organizers','hero_slider_photos',
+          'ff_player_photos','ff_custom_clubs','ff_organizers','hero_slider_photos',
           'ff_welcome_photos','ff_welcome_interval','lfld_site_background',
           'lfld_site_blur_bg','bannerSlides','ff_team_photos',
           'ff_tournament_posters','match_vk_albums','ff_streams','ff_vk_live'
@@ -1108,7 +1122,6 @@
       console.warn('[cache-reset]', e);
     }
 
-    /* Принудительная перезагрузка с обходом кэша */
     setTimeout(function () {
       try {
         window.location.reload(true);
@@ -1227,8 +1240,13 @@
       '<th style="width:200px;"></th></tr></thead><tbody>';
     list.slice(0, 200).forEach(function (p) {
       var fio = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
-      var photoHtml = p.photo
-        ? '<img src="' + p.photo + '" style="width:36px;height:44px;object-fit:cover;border-radius:4px;">'
+      var photoUrl = '';
+      if (window.lfldMedia && window.lfldMedia.getPlayerPhoto) {
+        photoUrl = window.lfldMedia.getPlayerPhoto(p.id) || window.lfldMedia.getPlayerPhoto(fio) || '';
+      }
+      if (!photoUrl && p.photo) photoUrl = p.photo;
+      var photoHtml = photoUrl
+        ? '<img src="' + photoUrl + '" style="width:36px;height:44px;object-fit:cover;border-radius:4px;">'
         : '<div style="width:36px;height:44px;border-radius:4px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:18px;opacity:0.5;">👤</div>';
       html += '<tr>' +
         '<td>' + photoHtml + '</td>' +
@@ -1267,6 +1285,13 @@
         '<span>🏆 ' + escapeHtml(a) + '</span>' +
         '<button type="button" class="btn-danger" style="padding:2px 8px!important;font-size:11px;" onclick="window.__removeAward(\'' + escapeAttr(playerId) + '\',' + i + ')">✕</button></div>';
     }).join('') || '<p style="color:#64748b;font-style:italic;font-size:12px;">Наград нет</p>';
+
+    var currentPhoto = '';
+    if (window.lfldMedia && window.lfldMedia.getPlayerPhoto) {
+      currentPhoto = window.lfldMedia.getPlayerPhoto(playerId) || window.lfldMedia.getPlayerPhoto(fio) || '';
+    }
+    if (!currentPhoto) currentPhoto = p.photo || '';
+
     var html = '';
     html += '<div class="form-row"><div class="form-group"><label>Фамилия</label><input type="text" id="peLastName" value="' + escapeHtml(p.lastName) + '"></div>' +
       '<div class="form-group"><label>Имя</label><input type="text" id="peFirstName" value="' + escapeHtml(p.firstName || '') + '"></div>' +
@@ -1277,7 +1302,7 @@
       '</select></div></div>';
     html += '<div class="form-group"><label>Фото игрока (3:4, сжатие до 240px)</label><div style="display:flex;gap:14px;align-items:center;">' +
       '<div id="pePhotoPreview" style="width:90px;height:120px;border-radius:8px;overflow:hidden;background:#0f172a;border:1px solid #334155;display:flex;align-items:center;justify-content:center;">' +
-        (p.photo ? '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover;">' : '<span style="font-size:34px;opacity:0.4;">👤</span>') +
+        (currentPhoto ? '<img src="' + currentPhoto + '" style="width:100%;height:100%;object-fit:cover;">' : '<span style="font-size:34px;opacity:0.4;">👤</span>') +
       '</div><div style="flex:1;"><input type="file" id="pePhotoFile" accept="image/*"><button type="button" class="btn-danger" style="margin-top:8px;padding:5px 12px!important;font-size:11px;" onclick="window.__clearPlayerPhoto(\'' + escapeAttr(playerId) + '\')">Удалить фото</button></div></div></div>';
     html += '<div class="form-group"><label>Алиасы (по одному в строке)</label><textarea id="peAliases" rows="3">' + escapeHtml((p.aliases || []).join('\n')) + '</textarea></div>';
     html += '<div class="form-group"><label>Награды</label><div>' + awards + '</div>' +
@@ -1287,13 +1312,21 @@
       '<button type="button" class="btn-secondary" onclick="window.__closePlayerEditor()">Отмена</button></div>';
     var wrap = q('peEditorWrap'); if (!wrap) return;
     wrap.innerHTML = '<div class="admin-extras-section" style="margin-top:16px;"><h3>✏️ Редактирование: ' + escapeHtml(fio) + '</h3>' + html + '</div>';
+
     var pf = q('pePhotoFile');
     if (pf) pf.onchange = function () {
       var f = this.files[0]; if (!f) return;
       var reader = new FileReader();
       reader.onload = function (e) {
         openCropModal(e.target.result, 3 / 4, function (cropped) {
+          /* ⚡ Сохраняем и в БД игрока, и в единый реестр */
           DB.updatePlayer(playerId, { photo: cropped });
+          if (window.lfldMedia && window.lfldMedia.setPlayerPhoto) {
+            var pp = DB.getPlayer(playerId);
+            var fio2 = pp ? [pp.lastName, pp.firstName, pp.middleName].filter(Boolean).join(' ') : '';
+            window.lfldMedia.setPlayerPhoto(playerId, cropped);   /* по id */
+            if (fio2) window.lfldMedia.setPlayerPhoto(fio2, cropped); /* и по ФИО */
+          }
           var prev = q('pePhotoPreview'); if (prev) prev.innerHTML = '<img src="' + cropped + '" style="width:100%;height:100%;object-fit:cover;">';
         }, {
           title: 'Кадрирование фото игрока (3:4, сжатие до 240px)',
@@ -1319,7 +1352,13 @@
   };
   window.__clearPlayerPhoto = function (id) {
     if (!confirm('Удалить фото?')) return;
+    var p = DB.getPlayer(id);
+    var fio = p ? [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ') : '';
     DB.updatePlayer(id, { photo: '' });
+    if (window.lfldMedia && window.lfldMedia.clearPlayerPhoto) {
+      window.lfldMedia.clearPlayerPhoto(id);
+      if (fio) window.lfldMedia.clearPlayerPhoto(fio);
+    }
     var prev = q('pePhotoPreview'); if (prev) prev.innerHTML = '<span style="font-size:34px;opacity:0.4;">👤</span>';
   };
   window.__addAward = function (id) {
@@ -1424,7 +1463,7 @@
       renderAiBlock() +
       renderOrganizersBlock() +
       renderConstructorBlock() +
-      renderCacheResetBlock();   /* ⚡ блок в самом низу админки */
+      renderCacheResetBlock();
     bindEvents();
     var fbT = q('fbTourney');
     if (fbT && tournamentsData[fbT.value]) updateFbTeams();
@@ -1437,5 +1476,5 @@
   loadCustomClubs();
   applyBackground();
   if (q('view-admin') && q('view-admin').style.display === 'block') renderAdminExtras();
-  console.log('[admin-extras] загружен — автосжатие + сброс кэша устройства');
+  console.log('[admin-extras] загружен — автосжатие + сброс кэша + единый реестр фото');
 })();

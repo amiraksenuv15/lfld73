@@ -3,6 +3,10 @@
    Репозиторий: amiraksenuv15/lfld73
    Ветка:       main
    Файл:        allTournamentsMasterData.js
+
+   v2.0 — публикует также реестры фото:
+     - LFLD_MASTER_DB.teamPhotos
+     - LFLD_MASTER_DB.playerPhotos
    ============================================================ */
 (function () {
   'use strict';
@@ -50,6 +54,7 @@
     aux.cupMetallistRosters = safeGet('ff_cup_metallist_rosters', {});
     aux.symbolicTeams       = safeGet('ff_symbolic_teams', {});
     aux.clubMainPhoto       = safeGet('ff_club_main_photo', {});
+    aux.playerPhotos        = safeGet('ff_player_photos', {});
     aux.tournaments         = safeGet('ff_tournaments', null);
     aux.customClubs         = safeGet('ff_custom_clubs', []);
     aux.bannerSlides        = safeGet('bannerSlides', []);
@@ -57,8 +62,22 @@
     return aux;
   }
 
-  function buildFileContent() {
+  /* Готовим копию LFLD_MASTER_DB с уже встроенными реестрами фото */
+  function buildMasterWithMedia() {
     var master = window.LFLD_MASTER_DB || {};
+    var copy = {};
+    Object.keys(master).forEach(function (k) {
+      if (k === 'teamPhotos' || k === 'playerPhotos') return;   /* вставим отдельно */
+      copy[k] = master[k];
+    });
+    /* Гарантированно создаём реестры, даже если они пусты */
+    copy.teamPhotos   = (master.teamPhotos   && typeof master.teamPhotos   === 'object') ? master.teamPhotos   : {};
+    copy.playerPhotos = (master.playerPhotos && typeof master.playerPhotos === 'object') ? master.playerPhotos : {};
+    return copy;
+  }
+
+  function buildFileContent() {
+    var master = buildMasterWithMedia();
     var aux = collectAuxData();
     var ts = new Date().toISOString();
 
@@ -68,9 +87,15 @@
     L.push('   Опубликовано: ' + ts);
     L.push('   ============================================================ */');
     L.push('');
-    L.push('window.LFLD_MASTER_DB = ' + JSON.stringify(master, null, 2) + ';');
+    L.push('/* ---------- Гарантия реестров фото ---------- */');
+    L.push('window.LFLD_MASTER_DB = window.LFLD_MASTER_DB || {};');
+    L.push('window.LFLD_MASTER_DB.teamPhotos   = window.LFLD_MASTER_DB.teamPhotos   || {};');
+    L.push('window.LFLD_MASTER_DB.playerPhotos = window.LFLD_MASTER_DB.playerPhotos || {};');
     L.push('');
-    L.push('/* ---------- Вспомогательные данные (заявки, сборная, фото) ---------- */');
+    L.push('/* ---------- Мастер-база турниров + реестры фото ---------- */');
+    L.push('window.LFLD_MASTER_DB = Object.assign(window.LFLD_MASTER_DB, ' + JSON.stringify(master, null, 2) + ');');
+    L.push('');
+    L.push('/* ---------- Вспомогательные данные (заявки, сборная, фон) ---------- */');
     L.push('window.LFLD_AUX_DATA = ' + JSON.stringify(aux, null, 2) + ';');
     L.push('');
     L.push('/* ---------- Автосинхронизация вспомогательных данных в localStorage ---------- */');
@@ -90,6 +115,7 @@
     L.push('  mergeInto("ff_cup_metallist_rosters", A.cupMetallistRosters);');
     L.push('  mergeInto("ff_symbolic_teams",        A.symbolicTeams);');
     L.push('  mergeInto("ff_club_main_photo",       A.clubMainPhoto);');
+    L.push('  mergeInto("ff_player_photos",         A.playerPhotos);');
     L.push('  mergeInto("ff_tournaments",           A.tournaments);');
     L.push('  if (Array.isArray(A.customClubs) && A.customClubs.length) {');
     L.push('    try {');
@@ -208,7 +234,7 @@
     w.innerHTML =
       '<div class="admin-extras-section gh-sync-section">' +
         '<h3>🔗 Синхронизация с GitHub</h3>' +
-        '<p>Публикация всех изменений (мастер-база, заявки, символическая сборная, фото команд) напрямую в репозиторий ' +
+        '<p>Публикация всех изменений (мастер-база, заявки, символическая сборная, <strong>фото команд и игроков</strong>) напрямую в репозиторий ' +
           '<strong>' + GH_OWNER + '/' + GH_REPO + '</strong> — ветка <code>' + GH_BRANCH + '</code>, файл <code>' + GH_FILE + '</code>.</p>' +
 
         '<div class="form-row">' +
@@ -238,9 +264,12 @@
           '<div>Что публикуется:</div>' +
           '<ul>' +
             '<li><code>window.LFLD_MASTER_DB</code> — мастер-база турниров</li>' +
+            '<li><code>teamPhotos</code> — <strong>фото команд</strong> (единый реестр)</li>' +
+            '<li><code>playerPhotos</code> — <strong>фото игроков</strong> (единый реестр)</li>' +
             '<li><code>ff_cup_metallist_rosters</code> — заявки Кубка Металлиста</li>' +
             '<li><code>ff_symbolic_teams</code> — символические сборные туров</li>' +
-            '<li><code>ff_club_main_photo</code> — командные фото</li>' +
+            '<li><code>ff_club_main_photo</code> — командные фото (совместимость)</li>' +
+            '<li><code>ff_player_photos</code> — фото игроков (совместимость)</li>' +
             '<li><code>ff_tournaments</code>, <code>ff_custom_clubs</code>, <code>bannerSlides</code>, <code>ff_organizers</code></li>' +
           '</ul>' +
         '</div>' +
@@ -293,6 +322,10 @@
 
     var fileContent;
     try {
+      /* Гарантируем, что lfld-media уже синхронизировал реестры в LFLD_MASTER_DB */
+      if (window.lfldMedia && window.lfldMedia.loadFromStorage) {
+        try { window.lfldMedia.loadFromStorage(); } catch (e) {}
+      }
       fileContent = buildFileContent();
     } catch (e) {
       setButtonBusy(false);
@@ -300,9 +333,17 @@
       return;
     }
 
+    var photoCount = 0;
+    try {
+      var tp = (window.LFLD_MASTER_DB && window.LFLD_MASTER_DB.teamPhotos) || {};
+      var pp = (window.LFLD_MASTER_DB && window.LFLD_MASTER_DB.playerPhotos) || {};
+      photoCount = Object.keys(tp).length + Object.keys(pp).length;
+    } catch (e) {}
+
     getCurrentFileSha(token)
       .then(function (sha) {
-        var message = 'Auto-sync from admin · ' + new Date().toLocaleString('ru-RU');
+        var message = 'Auto-sync from admin · ' + new Date().toLocaleString('ru-RU')
+          + (photoCount ? ' · media: ' + photoCount : '');
         return putFile(token, fileContent, sha, message);
       })
       .then(function (res) {
@@ -313,6 +354,7 @@
         setStatus(
           '✅ Успешно опубликовано на GitHub' +
           (commitShort ? ' (commit ' + commitShort + ')' : '') +
+          (photoCount ? ' · медиа: ' + photoCount : '') +
           '. Сайт обновится после пересборки/CDN (~1–2 мин).',
           'ok'
         );
@@ -353,7 +395,7 @@
         document.getElementById('view-admin').style.display === 'block') {
       setTimeout(renderBlock, 100);
     }
-    console.log('[github-sync] загружен → ' + GH_OWNER + '/' + GH_REPO);
+    console.log('[github-sync] загружен → ' + GH_OWNER + '/' + GH_REPO + ' (с медиа-реестрами)');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

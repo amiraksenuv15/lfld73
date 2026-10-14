@@ -115,7 +115,9 @@
     #toggle-roster-btn:active { transform: translateY(0); }
   </style>
 
-  <script src="lfld-storage.js"></script>
+  <!-- ⚡ Защита от QuotaExceededError — ДОЛЖЕН идти первым -->
+  <script src="lfld-storage.js?v=3.0"></script>
+
   <script src="teamsData.js?v=3.0"></script>
   <script src="historyData.js?v=3.0"></script>
   <script src="allTournamentsMasterData.js?v=3.0"></script>
@@ -643,19 +645,18 @@
     }
 
     /* ⚡ ПРИОРИТЕТ: данные из allTournamentsMasterData.js (LFLD_MASTER_DB)
-       — источник правды. localStorage — только черновик админки.
-       При загрузке сначала берём из файла, потом накладываем черновик. */
+       — источник правды. localStorage — только черновик админки. */
     var tournamentsData = (function() {
       var data = {};
       var saved = null;
       try { saved = JSON.parse(localStorage.getItem('ff_tournaments') || 'null'); } catch(e) {}
 
-      /* 1) СНАЧАЛА — из файла базы (свежая версия с GitHub) */
+      /* 1) СНАЧАЛА — из файла базы */
       Object.keys(DEFAULT_TOURNAMENTS).forEach(function(k) {
         data[k] = normalizeTournament(JSON.parse(JSON.stringify(DEFAULT_TOURNAMENTS[k])));
       });
 
-      /* 2) ПОТОМ — черновик из localStorage (если есть) */
+      /* 2) ПОТОМ — черновик из localStorage */
       if (saved && typeof saved === 'object') {
         Object.keys(saved).forEach(function(k) {
           if (!data[k]) { data[k] = normalizeTournament(saved[k]); return; }
@@ -785,7 +786,9 @@
     function escapeAttr(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
     function makeMatchId(tk, m) { return (tk || '') + '_' + (m.tour || m.round || '') + '_' + (m.t1 || '') + '_' + (m.t2 || ''); }
 
-    /* ⚡ СПОЙЛЕР СОСТАВА — железобетонная версия */
+    /* ============================================================
+       ⚡ СПОЙЛЕР СОСТАВА — железобетонная версия
+       ============================================================ */
     var ROSTER_LIMIT = 6;
     var ROSTER_ROW_EXTRA_CLASS = 'roster-extra-row';
 
@@ -1563,8 +1566,12 @@
       c.innerHTML = html;
     }
 
+    /* ⚡ Единый реестр фото — приоритет, затем fallback на teamsData.js */
     function getClubMainPhoto(clubName) {
-      try { var d = JSON.parse(localStorage.getItem('ff_club_main_photo') || '{}'); if (d[clubName]) return d[clubName]; } catch(e) {}
+      if (window.lfldMedia && window.lfldMedia.getTeamPhoto) {
+        var u = window.lfldMedia.getTeamPhoto(clubName);
+        if (u) return u;
+      }
       if (window.teamsDatabase) {
         var r = (window.teamRosters && window.teamRosters.resolveClubName) || null;
         var keys = Object.keys(window.teamsDatabase);
@@ -1632,7 +1639,14 @@
           fromMaster.forEach(function(p, i) {
             var posCls = 'pos-' + (p.pos || 'УНИ').toLowerCase();
             var photoUrl = '';
-            if (window.database) { var f = window.database.findPlayersByName(p.name, clubName); if (f && f.length && f[0].photo) photoUrl = f[0].photo; }
+            /* ⚡ Сначала единый реестр, потом БД игрока */
+            if (window.lfldMedia && window.lfldMedia.getPlayerPhoto) {
+              photoUrl = window.lfldMedia.getPlayerPhoto(p.name) || '';
+            }
+            if (!photoUrl && window.database) {
+              var f = window.database.findPlayersByName(p.name, clubName);
+              if (f && f.length && f[0].photo) photoUrl = f[0].photo;
+            }
             var av = photoUrl ? '<img src="' + photoUrl + '" style="width:26px;height:32px;object-fit:cover;border-radius:4px;vertical-align:middle;margin-right:6px;">' : '<span style="display:inline-flex;width:26px;height:32px;border-radius:4px;background:#1e293b;align-items:center;justify-content:center;font-size:14px;opacity:0.5;vertical-align:middle;margin-right:6px;">👤</span>';
             var attrs = rosterRowAttrs(i);
             rHtml += '<tr class="pointer' + attrs.cls + '"' + attrs.style + ' onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(clubName) + '\')">';
@@ -1999,6 +2013,7 @@
   <script src="auth.js?v=3.0"></script>
   <script src="rosters.js?v=3.0"></script>
   <script src="player-cabinet.js?v=3.0"></script>
+  <script src="lfld-media.js?v=3.0"></script>
   <script src="admin-extras.js?v=3.0"></script>
   <script src="lfld-v2.js?v=3.0"></script>
   <script src="totw-public.js?v=3.0"></script>

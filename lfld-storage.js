@@ -3,15 +3,15 @@
    Подключается ПЕРВЫМ, до всех остальных скриптов.
    Ловит переполнение хранилища, автоматически чистит
    некритичные ключи и повторяет запись.
+
+   v1.1 — добавлен ключ ff_player_photos в неcricitical list
    ============================================================ */
 (function () {
   'use strict';
 
   /* Ключи, которые можно безопасно удалить при переполнении.
-     Здесь — только кэш-подобные данные, которые легко пересоздаются:
-     слайдеры, фоны, галерея, трансляции. НЕ трогаем:
-     ff_tournaments, ff_database_v1, ff_symbolic_teams,
-     ff_cup_metallist_rosters, lfld_gh_token, ff_club_main_photo. */
+     НЕ трогаем: ff_tournaments, ff_database_v1, ff_symbolic_teams,
+     ff_cup_metallist_rosters, lfld_gh_token. */
   var NON_CRITICAL_KEYS = [
     'hero_slider_photos',
     'ff_welcome_photos',
@@ -24,6 +24,22 @@
     'match_vk_albums',
     'ff_streams',
     'ff_vk_live'
+  ];
+
+  /* Дополнительные ключи, которые при полном сбросе тоже удаляем,
+     но в мягкой очистке не трогаем (это могут быть важные данные). */
+  var EXTRA_RESET_KEYS = [
+    'ff_tournaments',
+    'ff_database_v1',
+    'ff_master_imported_v3',
+    'ff_symbolic_teams',
+    'ff_cup_metallist_rosters',
+    'ff_club_main_photo',
+    'ff_player_photos',
+    'ff_custom_clubs',
+    'ff_organizers',
+    'fav_club',
+    'fav_tourney'
   ];
 
   var originalSetItem = null;
@@ -75,7 +91,7 @@
             originalSetItem(key, value);
           } catch (e3) {
             console.error('[lfld-storage] Финальная попытка провалилась:', e3);
-            // Всё равно не роняем приложение — просто логируем
+            /* Всё равно не роняем приложение — просто логируем */
           }
         }
       } else {
@@ -89,22 +105,11 @@
 
   /* Полная очистка кэша устройства (кнопка в админке) */
   window.__fullCacheReset = function () {
-    var keysToRemove = NON_CRITICAL_KEYS.concat([
-      'ff_tournaments',
-      'ff_database_v1',
-      'ff_master_imported_v3',
-      'ff_symbolic_teams',
-      'ff_cup_metallist_rosters',
-      'ff_club_main_photo',
-      'ff_custom_clubs',
-      'ff_organizers',
-      'fav_club',
-      'fav_tourney'
-    ]);
+    var keysToRemove = NON_CRITICAL_KEYS.concat(EXTRA_RESET_KEYS);
     keysToRemove.forEach(function (k) {
       try { localStorage.removeItem(k); } catch (e) {}
     });
-    console.log('[lfld-storage] Полный сброс кэша устройства выполнен');
+    console.log('[lfld-storage] Полный сброс кэша устройства выполнен (' + keysToRemove.length + ' ключей)');
     return keysToRemove.length;
   };
 
