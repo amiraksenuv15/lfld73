@@ -120,7 +120,6 @@
 
   <script src="teamsData.js?v=3.0"></script>
   <script src="historyData.js?v=3.0"></script>
-  <script src="allTournamentsMasterData.js?v=3.0"></script>
   <script src="banner.js?v=3.0"></script>
 
   <link rel="stylesheet" href="style.css?v=3.0">
@@ -2009,6 +2008,36 @@
     window.toggleAdminPanel = toggleAdminPanel;
   </script>
 
+  <!-- ⚡ ДИНАМИЧЕСКАЯ ЗАГРУЗКА БАЗЫ С АНТИКЭШЕМ (критично для синхронизации фото между устройствами!) -->
+  <script>
+    (function () {
+      // Защита от жесткого кэширования на смартфонах: подключаем базу с timestamp
+      const dbScript = document.createElement('script');
+      dbScript.src = 'allTournamentsMasterData.js?v=' + new Date().getTime();
+      dbScript.onload = function () {
+        // База загружена — запускаем импорт после загрузки всех зависимостей
+        if (window.database && window.database.importFromMasterDatabase) {
+          try {
+            var r = window.database.importFromMasterDatabase(true);
+            if (r) {
+              console.log('[app] Master imported (force):', r);
+              if (window.renderTourney) window.renderTourney();
+              if (window.renderSidebar) window.renderSidebar();
+              if (window.updateDynamicTabs) window.updateDynamicTabs();
+            }
+          } catch (e) { console.warn('[app] bootstrap error', e); }
+        }
+        if (window.renderHomeSymbolic) window.renderHomeSymbolic();
+        if (window.renderHomeUpcoming) window.renderHomeUpcoming();
+        if (window.LFLD_V2 && window.LFLD_V2.renderHomeAffiche) window.LFLD_V2.renderHomeAffiche();
+      };
+      dbScript.onerror = function () {
+        console.warn('[app] Не удалось загрузить allTournamentsMasterData.js — работаем с localStorage');
+      };
+      document.head.appendChild(dbScript);
+    })();
+  </script>
+
   <script src="database.js?v=3.0"></script>
   <script src="auth.js?v=3.0"></script>
   <script src="rosters.js?v=3.0"></script>
@@ -2022,26 +2051,5 @@
   <script src="site-blur-bg.js?v=3.0"></script>
   <script src="sidebar-and-dates-fix.js?v=3.0"></script>
   <script src="github-sync.js?v=3.0"></script>
-
-  <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      if (!window.database) return;
-      try {
-        var r = window.database.importFromMasterDatabase(true);
-        if (r) {
-          console.log('[app] Master imported (force):', r);
-          if (window.renderTourney) window.renderTourney();
-          if (window.renderSidebar) window.renderSidebar();
-          if (window.updateDynamicTabs) window.updateDynamicTabs();
-        } else {
-          var a = window.database.mergeMasterMatches();
-          if (a && window.renderTourney) window.renderTourney();
-        }
-        if (window.renderHomeSymbolic) window.renderHomeSymbolic();
-        if (window.renderHomeUpcoming) window.renderHomeUpcoming();
-        if (window.LFLD_V2 && window.LFLD_V2.renderHomeAffiche) window.LFLD_V2.renderHomeAffiche();
-      } catch(e) { console.warn('[app] bootstrap error', e); }
-    });
-  </script>
 </body>
 </html>

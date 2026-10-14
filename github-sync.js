@@ -1,12 +1,9 @@
 /* ============================================================
    github-sync.js — прямая публикация данных админки в GitHub
+   v3.0 — публикует teamPhotos/playerPhotos + playerRegistry
    Репозиторий: amiraksenuv15/lfld73
    Ветка:       main
    Файл:        allTournamentsMasterData.js
-
-   v2.0 — публикует также реестры фото:
-     - LFLD_MASTER_DB.teamPhotos
-     - LFLD_MASTER_DB.playerPhotos
    ============================================================ */
 (function () {
   'use strict';
@@ -18,9 +15,6 @@
   var TOKEN_KEY = 'lfld_gh_token';
   var API_BASE  = 'https://api.github.com';
 
-  /* ============================================================
-     Base64 с корректной поддержкой UTF-8 / кириллицы
-     ============================================================ */
   function toBase64Unicode(str) {
     return btoa(
       encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function (match, p1) {
@@ -29,9 +23,6 @@
     );
   }
 
-  /* ============================================================
-     Токен
-     ============================================================ */
   function loadToken() {
     try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
   }
@@ -42,9 +33,6 @@
     try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
   }
 
-  /* ============================================================
-     Сбор данных для публикации
-     ============================================================ */
   function collectAuxData() {
     var aux = {};
     function safeGet(key, def) {
@@ -62,15 +50,37 @@
     return aux;
   }
 
-  /* Готовим копию LFLD_MASTER_DB с уже встроенными реестрами фото */
+  /* Снимок реестра игроков из БД (для кросс-устройственной сверки) */
+  function collectPlayerRegistry() {
+    var list = [];
+    try {
+      if (window.database && window.database.players) {
+        var all = window.database.players();
+        Object.keys(all).forEach(function (id) {
+          var p = all[id];
+          var fio = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
+          if (!fio) return;
+          list.push({
+            id: id,
+            fio: fio,
+            clubs: p.clubs || [],
+            position: p.position || 'УНИ',
+            birthDate: p.birthDate || '',
+            photo: p.photo || ''
+          });
+        });
+      }
+    } catch (e) {}
+    return list;
+  }
+
   function buildMasterWithMedia() {
     var master = window.LFLD_MASTER_DB || {};
     var copy = {};
     Object.keys(master).forEach(function (k) {
-      if (k === 'teamPhotos' || k === 'playerPhotos') return;   /* вставим отдельно */
+      if (k === 'teamPhotos' || k === 'playerPhotos') return;
       copy[k] = master[k];
     });
-    /* Гарантированно создаём реестры, даже если они пусты */
     copy.teamPhotos   = (master.teamPhotos   && typeof master.teamPhotos   === 'object') ? master.teamPhotos   : {};
     copy.playerPhotos = (master.playerPhotos && typeof master.playerPhotos === 'object') ? master.playerPhotos : {};
     return copy;
@@ -79,6 +89,7 @@
   function buildFileContent() {
     var master = buildMasterWithMedia();
     var aux = collectAuxData();
+    var registry = collectPlayerRegistry();
     var ts = new Date().toISOString();
 
     var L = [];
@@ -95,8 +106,11 @@
     L.push('/* ---------- Мастер-база турниров + реестры фото ---------- */');
     L.push('window.LFLD_MASTER_DB = Object.assign(window.LFLD_MASTER_DB, ' + JSON.stringify(master, null, 2) + ');');
     L.push('');
-    L.push('/* ---------- Вспомогательные данные (заявки, сборная, фон) ---------- */');
+    L.push('/* ---------- Вспомогательные данные ---------- */');
     L.push('window.LFLD_AUX_DATA = ' + JSON.stringify(aux, null, 2) + ';');
+    L.push('');
+    L.push('/* ---------- Снимок реестра игроков (для сверки) ---------- */');
+    L.push('window.LFLD_PLAYER_REGISTRY = ' + JSON.stringify(registry, null, 2) + ';');
     L.push('');
     L.push('/* ---------- Автосинхронизация вспомогательных данных в localStorage ---------- */');
     L.push('(function () {');
@@ -139,9 +153,6 @@
     return L.join('\n');
   }
 
-  /* ============================================================
-     GitHub API
-     ============================================================ */
   function ghHeaders(token) {
     return {
       'Authorization': 'token ' + token,
@@ -191,9 +202,6 @@
     });
   }
 
-  /* ============================================================
-     UI
-     ============================================================ */
   function ensureWrap() {
     var w = document.getElementById('ghSyncWrap');
     if (w) return w;
@@ -234,7 +242,7 @@
     w.innerHTML =
       '<div class="admin-extras-section gh-sync-section">' +
         '<h3>🔗 Синхронизация с GitHub</h3>' +
-        '<p>Публикация всех изменений (мастер-база, заявки, символическая сборная, <strong>фото команд и игроков</strong>) напрямую в репозиторий ' +
+        '<p>Публикация всех изменений (мастер-база, заявки, символическая сборная, <strong>фото команд и игроков, реестр игроков</strong>) напрямую в репозиторий ' +
           '<strong>' + GH_OWNER + '/' + GH_REPO + '</strong> — ветка <code>' + GH_BRANCH + '</code>, файл <code>' + GH_FILE + '</code>.</p>' +
 
         '<div class="form-row">' +
@@ -264,12 +272,11 @@
           '<div>Что публикуется:</div>' +
           '<ul>' +
             '<li><code>window.LFLD_MASTER_DB</code> — мастер-база турниров</li>' +
-            '<li><code>teamPhotos</code> — <strong>фото команд</strong> (единый реестр)</li>' +
-            '<li><code>playerPhotos</code> — <strong>фото игроков</strong> (единый реестр)</li>' +
-            '<li><code>ff_cup_metallist_rosters</code> — заявки Кубка Металлиста</li>' +
-            '<li><code>ff_symbolic_teams</code> — символические сборные туров</li>' +
-            '<li><code>ff_club_main_photo</code> — командные фото (совместимость)</li>' +
-            '<li><code>ff_player_photos</code> — фото игроков (совместимость)</li>' +
+            '<li><code>teamPhotos</code> — фото команд</li>' +
+            '<li><code>playerPhotos</code> — фото игроков</li>' +
+            '<li><code>LFLD_PLAYER_REGISTRY</code> — снимок реестра игроков</li>' +
+            '<li><code>ff_cup_metallist_rosters</code>, <code>ff_symbolic_teams</code></li>' +
+            '<li><code>ff_club_main_photo</code>, <code>ff_player_photos</code></li>' +
             '<li><code>ff_tournaments</code>, <code>ff_custom_clubs</code>, <code>bannerSlides</code>, <code>ff_organizers</code></li>' +
           '</ul>' +
         '</div>' +
@@ -303,9 +310,6 @@
     if (pubBtn) pubBtn.onclick = publishToGithub;
   }
 
-  /* ============================================================
-     Публикация
-     ============================================================ */
   function publishToGithub() {
     var tokenInp = document.getElementById('gh-token-input');
     var token = (tokenInp && tokenInp.value || '').trim() || loadToken();
@@ -322,7 +326,6 @@
 
     var fileContent;
     try {
-      /* Гарантируем, что lfld-media уже синхронизировал реестры в LFLD_MASTER_DB */
       if (window.lfldMedia && window.lfldMedia.loadFromStorage) {
         try { window.lfldMedia.loadFromStorage(); } catch (e) {}
       }
@@ -378,9 +381,6 @@
       });
   }
 
-  /* ============================================================
-     Хук в админку
-     ============================================================ */
   function patchAdmin() {
     var prev = window.onAdminPanelOpened;
     window.onAdminPanelOpened = function () {
@@ -395,7 +395,7 @@
         document.getElementById('view-admin').style.display === 'block') {
       setTimeout(renderBlock, 100);
     }
-    console.log('[github-sync] загружен → ' + GH_OWNER + '/' + GH_REPO + ' (с медиа-реестрами)');
+    console.log('[github-sync] v3.0 загружен → ' + GH_OWNER + '/' + GH_REPO + ' (с медиа-реестрами и реестром игроков)');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
