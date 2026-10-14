@@ -149,6 +149,7 @@
   </div>
 
   <div class="container">
+    <!-- ⚡ САЙДБАР — только навигация и турниры. Блок «КЛУБЫ ФЕДЕРАЦИИ» удалён -->
     <div class="sidebar" id="mainSidebar">
       <div class="sidebar-tourneys">
         <div class="menu-group-title">Навигация</div>
@@ -156,10 +157,6 @@
         <div class="menu-group-title">Турниры Федерации</div>
         <div id="sidebarTourneysList"></div>
         <button class="menu-btn" id="btnAffiche">Афиша и анонсы</button>
-      </div>
-      <div class="sidebar-clubs-footer">
-        <div class="menu-group-title">КЛУБЫ ФЕДЕРАЦИИ</div>
-        <div id="sidebarClubsList" class="clubs-grid"></div>
       </div>
     </div>
 
@@ -779,7 +776,7 @@
     function makeMatchId(tk, m) { return (tk || '') + '_' + (m.tour || m.round || '') + '_' + (m.t1 || '') + '_' + (m.t2 || ''); }
 
     /* ============================================================
-       ⚡ СПОЙЛЕР СОСТАВА — ЖЕЛЕЗОБЕТОННАЯ ВЕРСИЯ
+       ⚡ СПОЙЛЕР СОСТАВА — железобетонная версия
        ============================================================ */
     var ROSTER_LIMIT = 6;
     var ROSTER_ROW_EXTRA_CLASS = 'roster-extra-row';
@@ -858,9 +855,6 @@
       window.toggleRosterSquad(btn);
     }, true);
 
-    /* ============================================================
-       ОСТАЛЬНОЙ КОД — без изменений (calculateStandings, renderTourney, etc.)
-       ============================================================ */
     function calculateStandings(tKey) {
       var t = tournamentsData[tKey];
       if (!t) return { stats: [], players: [] };
@@ -1039,7 +1033,7 @@
     function setFavoriteClub(cName) {
       favoriteClub = canonicalClub(cName);
       try { localStorage.setItem("fav_club", favoriteClub); } catch(e) {}
-      renderTourney(); renderSidebar();
+      renderTourney();
     }
 
     function renderTourney() {
@@ -1756,26 +1750,15 @@
       c.innerHTML = html;
       c.querySelectorAll('.dynamic-tourney-btn').forEach(function(btn) { btn.onclick = function() { enterTournament(this.getAttribute('data-key')); }; });
     }
+
+    /* ⚡ renderSidebar — только турниры + список «Мой клуб» в шапке. Блок клубов УДАЛЁН */
     function renderSidebar() {
       try {
         renderTourneyButtons();
-        var cg = document.getElementById('sidebarClubsList');
-        if (cg) {
-          var html = '';
-          clubsData.forEach(function(c) {
-            var sn = escapeAttr(c.name);
-            html += '<div class="club-mini' + (c.name === favoriteClub ? ' active' : '') +
-              '" title="' + c.name.replace(/"/g, '&quot;') + '"' +
-              ' onclick="openClubCabinet(\'' + sn + '\')">' +
-              '<span class="logo-plashka size-sm">' +
-                '<img src="' + (c.logo || '⚽') + '" alt="" loading="lazy">' +
-              '</span>' +
-            '</div>';
-          });
-          cg.innerHTML = html;
-        }
         var fe = document.getElementById('favClubSelect');
-        if (fe) fe.innerHTML = '<option value="">Мой клуб</option>' + clubsData.map(function(c) { return '<option value="' + c.name.replace(/"/g, '&quot;') + '" ' + (c.name === favoriteClub ? 'selected' : '') + '>' + c.name + '</option>'; }).join('');
+        if (fe) fe.innerHTML = '<option value="">Мой клуб</option>' + clubsData.map(function(c) {
+          return '<option value="' + c.name.replace(/"/g, '&quot;') + '" ' + (c.name === favoriteClub ? 'selected' : '') + '>' + c.name + '</option>';
+        }).join('');
       } catch(e) { console.error(e); }
     }
 
@@ -2017,6 +2000,7 @@
   <script src="crop-enhanced.js"></script>
   <script src="site-blur-bg.js"></script>
   <script src="sidebar-and-dates-fix.js"></script>
+  <script src="github-sync.js"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {
