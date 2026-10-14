@@ -1,13 +1,23 @@
 /* ============================================================
    totw-public.js — публичный рендер Символической сборной тура
-   + Афиша БЛИЖАЙШИХ МАТЧЕЙ с локацией.
+   Поддержка 8 ФИКСИРОВАННЫХ позиций (ВРТ/ЛЗ/ПЗ/ОПЗ/ЦПЗ/ЛВ/ПВ/ЦН)
    ============================================================ */
 (function () {
   'use strict';
 
-  var POS_Y = { 'НАП': 12, 'АТК': 28, 'ПЗ': 48, 'ЗАЩ': 68, 'ВРТ': 88 };
-  var POS_ORDER = ['НАП', 'АТК', 'ПЗ', 'ЗАЩ', 'ВРТ'];
   var CUP_KEY = 'cup_metallist_2026';
+
+  /* --- Раскладка 8 фиксированных позиций на поле --- */
+  var TOTW_LAYOUT = {
+    'ЦН':  { x: 50, y: 12 },
+    'ЛВ':  { x: 18, y: 28 },
+    'ПВ':  { x: 82, y: 28 },
+    'ОПЗ': { x: 30, y: 50 },
+    'ЦПЗ': { x: 70, y: 50 },
+    'ЛЗ':  { x: 22, y: 68 },
+    'ПЗ':  { x: 78, y: 68 },
+    'ВРТ': { x: 50, y: 88 }
+  };
 
   function escapeHtml(s) {
     return String(s == null ? '' : s)
@@ -44,28 +54,19 @@
       targetKey = keys[keys.length - 1];
     }
     var payload = all[targetKey];
-    return (payload && Array.isArray(payload.players)) ? payload : null;
-  }
+    if (!payload) return null;
 
-  function layoutPlayers(players) {
-    var byLine = {};
-    players.forEach(function (p) {
-      var pos = String(p.pos || 'ПЗ').toUpperCase();
-      if (!POS_Y[pos]) pos = 'ПЗ';
-      if (!byLine[pos]) byLine[pos] = [];
-      byLine[pos].push(p);
-    });
-    var out = [];
-    POS_ORDER.forEach(function (pos) {
-      var list = byLine[pos] || []; var n = list.length;
-      if (!n) return;
-      var y = POS_Y[pos];
-      list.forEach(function (p, i) {
-        var x = (n === 1) ? 50 : 14 + (i * 72 / (n - 1));
-        out.push({ p: p, x: x, y: y, pos: pos });
+    // Унификация формата: либо slots, либо players
+    if (payload.slots && Array.isArray(payload.slots)) return payload;
+    if (Array.isArray(payload.players)) {
+      var slots = [];
+      payload.players.forEach(function (p, i) {
+        if (!p || !p.name) return;
+        slots.push({ name: p.name, club: p.club, pos: p.pos || 'ПЗ', short: p.short || '' });
       });
-    });
-    return out;
+      payload.slots = slots;
+    }
+    return payload;
   }
 
   function clubLogoHtml(club) {
@@ -92,7 +93,9 @@
         : 'Символическая сборная тура';
     }
 
-    if (!saved || !saved.players.length) {
+    var filled = (saved && saved.slots) ? saved.slots.filter(function (p) { return p && p.name && p.club; }) : [];
+
+    if (!filled.length) {
       var empty = document.createElement('div');
       empty.className = 'symbolic-empty';
       empty.style.cssText =
@@ -105,18 +108,19 @@
       return;
     }
 
-    layoutPlayers(saved.players).forEach(function (item) {
-      var p = item.p;
+    filled.forEach(function (p) {
+      var code = String(p.pos || '').toUpperCase();
+      var layout = TOTW_LAYOUT[code] || { x: 50, y: 50 };
       var el = document.createElement('div');
       el.className = 'sp-player';
-      el.style.left = item.x + '%';
-      el.style.top = item.y + '%';
+      el.style.left = layout.x + '%';
+      el.style.top = layout.y + '%';
       el.setAttribute('title', (p.name || '') + (p.club ? ' · ' + p.club : ''));
       var short = p.short || (p.name ? String(p.name).split(/\s+/)[0] : '—');
       el.innerHTML =
         '<div class="sp-shirt">' + clubLogoHtml(p.club) + '</div>' +
         '<div class="sp-name">' + escapeHtml(short) + '</div>' +
-        '<div class="sp-pos">' + escapeHtml(item.pos) + '</div>';
+        '<div class="sp-pos">' + escapeHtml(code) + '</div>';
       el.addEventListener('click', function () {
         if (p.name && window.openPlayerModal) window.openPlayerModal(p.name, p.club);
       });
@@ -125,7 +129,6 @@
   }
 
   /* ============================ АФИША МАТЧЕЙ ============================ */
-
   function parseDateTime(str) {
     if (!str) return null;
     var m = String(str).match(/(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/);
@@ -157,7 +160,6 @@
   function collectUpcomingMatches() {
     var TD = window.tournamentsData || {};
     var all = [];
-
     Object.keys(TD).forEach(function (tk) {
       var t = TD[tk]; if (!t || !Array.isArray(t.matches)) return;
       t.matches.forEach(function (m) {
@@ -169,16 +171,9 @@
         if (status && status !== 'upcoming' && status !== 'announce') return;
         var dt = parseDateTime(m.date);
         if (!dt) dt = new Date(8640000000000);
-        all.push({
-          tk: tk,
-          tourney: t.title || tk,
-          isCup: !!t.isMetallistCup,
-          match: m,
-          dt: dt
-        });
+        all.push({ tk: tk, tourney: t.title || tk, isCup: !!t.isMetallistCup, match: m, dt: dt });
       });
     });
-
     all.sort(function (a, b) {
       if (a.isCup !== b.isCup) return a.isCup ? -1 : 1;
       return a.dt - b.dt;
@@ -192,14 +187,7 @@
     var timeStr = fmtTime(m.time || m.date, dt);
     var dateStr = dt ? fmtDate(dt) : (m.date || 'Дата уточняется');
     var countdown = daysUntil(dt);
-
-    /* ⚡ Локация: приоритет venue над stadium, для кубка — «ФОК Легенда» */
-    var venue =
-      m.venue ||
-      m.stadium ||
-      (item.isCup ? 'ФОК Легенда' : null) ||
-      'Манеж «Атом»';
-
+    var venue = m.venue || m.stadium || (item.isCup ? 'ФОК Легенда' : null) || 'Манеж «Атом»';
     var tourneyLabel = item.isCup ? 'Кубок Металлиста' : item.tourney;
 
     var html = '';
@@ -231,7 +219,6 @@
   function renderHomeAffiche() {
     var grid = document.getElementById('homeAfficheGrid');
     if (!grid) return;
-
     var items = collectUpcomingMatches();
     if (!items.length) {
       grid.innerHTML = '<div class="affiche-matches-empty">Пока нет запланированных матчей</div>';
@@ -261,5 +248,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  console.log('[totw-public] загружен — LFLD_V2.renderHomeTOTW / renderHomeAffiche');
+  console.log('[totw-public] загружен — 8 фикс. позиций');
 })();

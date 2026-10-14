@@ -9,6 +9,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Russo+One&family=Ubuntu:wght@400;500;700&display=swap">
 
+  <!-- ⚡ Cropper.js — стабильная библиотека для кадрирования -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
   <style>
     html, body {
       background-color: #0b132b !important;
@@ -533,6 +537,26 @@
     </div>
   </div>
 
+  <!-- ⚡ Модальное окно Cropper.js -->
+  <div class="modal-overlay" id="photo-cropper-modal">
+    <div class="modal-content cropper-modal-content">
+      <button class="modal-close" id="cropper-modal-close" type="button">✕</button>
+      <h2 style="margin:0 0 6px;">Настройка и кадрирование фотографии</h2>
+      <p style="color:#94a3b8;font-size:12px;margin:0 0 14px;">
+        Перетаскивайте рамку или само изображение. Пропорции зафиксированы под блок сайта.
+      </p>
+      <div class="cropper-stage">
+        <img id="cropper-image" src="" alt="">
+      </div>
+      <div class="cropper-preview-label">Живой предпросмотр (как будет на сайте):</div>
+      <div class="preview-box"></div>
+      <div class="cropper-actions">
+        <button type="button" class="btn-success" id="save-cropped-photo-btn">Сохранить и применить кадрирование</button>
+        <button type="button" class="btn-secondary" id="cancel-cropped-photo-btn">Отмена</button>
+      </div>
+    </div>
+  </div>
+
   <footer class="site-footer">
     <div class="footer-inner">
       <div class="footer-links">
@@ -760,20 +784,16 @@
     var ROSTER_LIMIT = 6;
     var ROSTER_ROW_EXTRA_CLASS = 'roster-extra-row';
 
-    /* При рендере помечаем extras классом. Скрытие — через CSS !important. */
     function rosterRowAttrs(idx) {
       if (idx >= ROSTER_LIMIT) return { cls: ' ' + ROSTER_ROW_EXTRA_CLASS, style: '' };
       return { cls: '', style: '' };
     }
 
-    /* ---- ГЛОБАЛЬНАЯ функция переключения ---- */
     window.toggleRosterSquad = function (btn) {
       if (!btn) return false;
-
       var container = btn.closest('.team-roster-container') || document;
       var tbody = container.querySelector('#clubRosterBody') || document.getElementById('clubRosterBody');
       if (!tbody) return false;
-
       var extraRows = tbody.querySelectorAll('tr.' + ROSTER_ROW_EXTRA_CLASS);
       if (!extraRows || extraRows.length === 0) return false;
 
@@ -782,8 +802,6 @@
       btn.setAttribute('data-expanded', newExpanded ? 'true' : 'false');
       btn.setAttribute('aria-expanded', newExpanded ? 'true' : 'false');
 
-      /* Ключевой момент: setProperty с приоритетом important
-         побеждает CSS-правило `#clubRosterBody tr.roster-extra-row { display:none !important; }` */
       Array.prototype.forEach.call(extraRows, function (row) {
         if (newExpanded) {
           row.classList.remove('hidden');
@@ -803,18 +821,14 @@
       return false;
     };
 
-    /* ---- Настройка кнопки после рендера состава ---- */
     function setupRosterToggle() {
       var btn = document.getElementById('toggle-roster-btn');
       if (!btn) return false;
-
       var tbody = document.getElementById('clubRosterBody');
       if (!tbody) return false;
-
       var extraRows = tbody.querySelectorAll('tr.' + ROSTER_ROW_EXTRA_CLASS);
       var total = extraRows.length;
 
-      // Сброс состояния
       btn.setAttribute('data-expanded', 'false');
       btn.setAttribute('aria-expanded', 'false');
 
@@ -822,19 +836,13 @@
         btn.classList.remove('visible');
         btn.style.display = 'none';
         btn.innerHTML = '<span>Развернуть полную заявку</span> ↓';
-        // страховка: снимаем возможное скрытие extras
-        tbody.querySelectorAll('tr.' + ROSTER_ROW_EXTRA_CLASS).forEach(function (r) {
-          r.style.removeProperty('display');
-        });
         return false;
       }
 
-      // Принудительно скрываем extras через inline !important (страховка от CSS)
       Array.prototype.forEach.call(extraRows, function (row) {
         row.style.setProperty('display', 'none', 'important');
       });
 
-      // Показываем кнопку
       btn.classList.add('visible');
       btn.style.display = 'flex';
       btn.innerHTML = '<span>Развернуть полную заявку (показать ещё ' + total + ' игроков)</span> ↓';
@@ -842,17 +850,16 @@
     }
     window.__setupRosterToggle = setupRosterToggle;
 
-    /* ---- ДЕЛЕГИРОВАНИЕ — живёт вне кнопки, переживает любой innerHTML ---- */
     document.addEventListener('click', function (e) {
       var btn = e.target && e.target.closest ? e.target.closest('#toggle-roster-btn') : null;
       if (!btn) return;
       e.preventDefault();
       e.stopPropagation();
       window.toggleRosterSquad(btn);
-    }, true); /* capture: true — срабатывает до любых других обработчиков */
+    }, true);
 
     /* ============================================================
-       ОСТАЛЬНОЙ КОД — без изменений
+       ОСТАЛЬНОЙ КОД — без изменений (calculateStandings, renderTourney, etc.)
        ============================================================ */
     function calculateStandings(tKey) {
       var t = tournamentsData[tKey];
@@ -1619,7 +1626,6 @@
 
         var fromMaster = (window.database && window.database.getTournamentClubStats) ? window.database.getTournamentClubStats(activeKey, clubName) : [];
         var rHtml = '';
-
         if (fromMaster.length) {
           fromMaster.forEach(function(p, i) {
             var posCls = 'pos-' + (p.pos || 'УНИ').toLowerCase();
@@ -1649,8 +1655,6 @@
           });
         }
         document.getElementById('clubRosterBody').innerHTML = rHtml || '<tr><td colspan="6" style="text-align:center;">Пока нет данных</td></tr>';
-
-        // ⚡ Настройка кнопки-спойлера
         setupRosterToggle();
 
         var cM = (tournamentsData[activeKey].matches || []).filter(function(m) { return m.t1 === clubName || m.t2 === clubName; });

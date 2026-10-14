@@ -1,7 +1,8 @@
 /* ============================================================
-   admin-extras.js — админка ЛФЛД (v3.0)
-   Конструктор символической сборной тура вернули к слотовому виду
-   с автопоиском игроков по мастер-реестру турнира.
+   admin-extras.js — админка ЛФЛД (v5.0)
+   - ТОТW: 8 ФИКСИРОВАННЫХ позиций + автокомплит строго по текущему турниру
+   - Кроппер делегируется в Cropper.js (см. crop-enhanced.js)
+   - AI-парсинг, протоколы, галерея, организаторы
    ============================================================ */
 (function () {
   'use strict';
@@ -12,318 +13,55 @@
   var DB = window.database;
   var TR = window.teamRosters;
 
+  /* ---------- Утилиты ---------- */
+  function escapeAttr(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+  function escapeHtml(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  function q(id) { return document.getElementById(id); }
+  function val(id) { var e = q(id); return e ? e.value : ''; }
+  function norm(s) { return String(s || '').toLowerCase().replace(/ё/g,'е').trim(); }
+
+  /* ============================================================
+     ⚡ 8 ФИКСИРОВАННЫХ ПОЗИЦИЙ СБОРНОЙ ТУРА (формат 8х8)
+     ============================================================ */
+  var TOTW_POSITIONS = [
+    { code: 'ВРТ', label: 'Вратарь',              short: 'ВРТ' },
+    { code: 'ЛЗ',  label: 'Левый защитник',       short: 'ЛЗ'  },
+    { code: 'ПЗ',  label: 'Правый защитник',      short: 'ПЗ'  },
+    { code: 'ОПЗ', label: 'Опорный полузащитник', short: 'ОПЗ' },
+    { code: 'ЦПЗ', label: 'Центральный полузащитник', short: 'ЦПЗ' },
+    { code: 'ЛВ',  label: 'Атакующий / Левый вингер',  short: 'ЛВ' },
+    { code: 'ПВ',  label: 'Атакующий / Правый вингер', short: 'ПВ' },
+    { code: 'ЦН',  label: 'Центральный нападающий',    short: 'ЦН' }
+  ];
+
   var mrState = { matchId: null, tourneyKey: null, t1: '', t2: '', activeTeam: 1, goals1: [], goals2: [], cards: [], attendance1: [], attendance2: [], tab: 'attendance' };
   var playerEditState = { playerId: null };
   var playerSearchQuery = '';
   var playerFilterClub = '';
   var playerRegistryOpen = false;
 
-  /* ============================================================
-     ⚡ СИМВОЛИЧЕСКАЯ СБОРНАЯ ТУРА — формация и состояние
-     ============================================================ */
-  var TOTW_FORMATION = [
-    { slot: 'ST',     pos: 'НАП', x: 50, y: 12 },
-    { slot: 'WING_L', pos: 'АТК', x: 22, y: 29 },
-    { slot: 'WING_R', pos: 'АТК', x: 78, y: 29 },
-    { slot: 'PZ_L',   pos: 'ПЗ',  x: 32, y: 48 },
-    { slot: 'PZ_R',   pos: 'ПЗ',  x: 68, y: 48 },
-    { slot: 'ZASH_L', pos: 'ЗАЩ', x: 32, y: 67 },
-    { slot: 'ZASH_R', pos: 'ЗАЩ', x: 68, y: 67 },
-    { slot: 'VRT',    pos: 'ВРТ', x: 50, y: 87 }
-  ];
-
   var symState = {
     tourneyKey: 'night_league_8x8',
     round: '1 ТУР',
-    slots: {} // slot → { name, short, club }
-  };
-
-  function symReset() {
-    symState.slots = {};
-    TOTW_FORMATION.forEach(function (f) {
-      symState.slots[f.slot] = { name: '', short: '', club: '' };
-    });
-  }
-  symReset();
-
-  /* ---------- Ключ сохранения (совместим со старым renderHomeSymbolic) ---------- */
-  function symKey(tk, round) { return tk + '|' + round; }
-
-  function symLoadFromStorage(tk, round) {
-    try {
-      var all = JSON.parse(localStorage.getItem('ff_symbolic_teams') || '{}');
-      var data = all[symKey(tk, round)];
-      if (!data || !Array.isArray(data.players)) { symReset(); return; }
-      symReset();
-      data.players.forEach(function (p) {
-        var f = TOTW_FORMATION.find(function (x) { return x.slot === p.slot; });
-        if (!f) return;
-        symState.slots[f.slot] = {
-          name: p.name || '',
-          short: p.short || '',
-          club: p.club || ''
-        };
-      });
-    } catch(e) { symReset(); }
-  }
-  function symSaveToStorage(tk, round) {
-    var all = {};
-    try { all = JSON.parse(localStorage.getItem('ff_symbolic_teams') || '{}'); } catch(e) {}
-    var players = [];
-    TOTW_FORMATION.forEach(function (f) {
-      var s = symState.slots[f.slot];
-      if (s && s.name) {
-        players.push({
-          slot: f.slot,
-          name: s.name,
-          short: s.short || s.name,
-          club: s.club || '',
-          pos: f.pos
-        });
-      }
-    });
-    all[symKey(tk, round)] = { tourneyKey: tk, round: round, players: players };
-    localStorage.setItem('ff_symbolic_teams', JSON.stringify(all));
-    // + пробрасываем в database.js (для legacy)
-    if (window.database && window.database.saveSymbolicTeam) {
-      try { window.database.saveSymbolicTeam(tk, round, players); } catch(e) {}
-    }
-  }
-
-  /* ---------- Пул игроков турнира из мастер-БД ---------- */
-  var TOTW_MASTER_MAP = {
-    '5x5':              'tournament_5x5',
-    '7x7':              'tournament_7x7',
-    'night_league_8x8': 'tournament_night',
-    'cup_5x5':          'cup_5x5',
-    'veterans_40':      null
-  };
-  function symPlayerPool(tournamentKey) {
-    var out = [];
-    var seen = {};
-    var M = window.LFLD_MASTER_DB;
-    if (!M) return out;
-    var mk = TOTW_MASTER_MAP[tournamentKey];
-    if (!mk) return out;
-    var t = M[mk];
-    if (!t) return out;
-
-    function push(name, clubRaw) {
-      if (!name || !clubRaw) return;
-      var club = (window.canonicalClub ? window.canonicalClub(clubRaw) : clubRaw);
-      var k = club + '||' + name.toLowerCase();
-      if (seen[k]) return;
-      seen[k] = 1;
-      var parts = String(name).split(/\s+/);
-      out.push({
-        name: name,
-        short: parts[0] + (parts[1] ? ' ' + parts[1][0] + '.' : ''),
-        club: club
-      });
-    }
-
-    if (mk === 'cup_5x5' && Array.isArray(t.players)) {
-      t.players.forEach(function (p) { if (p && p.name && p.team) push(p.name, p.team); });
-    } else if (t.teams) {
-      Object.keys(t.teams).forEach(function (clubRaw) {
-        (t.teams[clubRaw] || []).forEach(function (p) { if (p && p.name) push(p.name, clubRaw); });
-      });
-    }
-    return out.sort(function (a, b) { return (a.short || a.name).localeCompare(b.short || b.name); });
-  }
-
-  /* ---------- Уже занятые ключи в других слотах ---------- */
-  function symUsedKeys(exceptSlot) {
-    var used = {};
-    TOTW_FORMATION.forEach(function (f) {
-      if (f.slot === exceptSlot) return;
-      var s = symState.slots[f.slot];
-      if (s && s.name) used[(s.club || '') + '||' + s.name.toLowerCase()] = 1;
-    });
-    return used;
-  }
-
-  /* ---------- Рендер блока в админке ---------- */
-  function renderSymbolicBlock() {
-    var tkeys = Object.keys(tournamentsData);
-    var tourneyOpts = tkeys.map(function (k) {
-      var t = tournamentsData[k];
-      return '<option value="' + k + '"' + (symState.tourneyKey === k ? ' selected' : '') + '>' + (t.title || k) + '</option>';
-    }).join('');
-
-    var rounds = [];
-    var curT = tournamentsData[symState.tourneyKey];
-    if (curT && Array.isArray(curT.matches)) {
-      curT.matches.forEach(function (m) { if (m.tour && rounds.indexOf(m.tour) === -1) rounds.push(m.tour); });
-    }
-    rounds.sort(function (a, b) { return (parseInt((a||'').replace(/\D/g,''))||0) - (parseInt((b||'').replace(/\D/g,''))||0); });
-    if (!rounds.length) rounds = ['1 ТУР', '2 ТУР', '3 ТУР', '4 ТУР', '5 ТУР'];
-    var roundOpts = rounds.map(function (r) {
-      return '<option value="' + r + '"' + (symState.round === r ? ' selected' : '') + '>' + r + '</option>';
-    }).join('');
-
-    // ⚡ Слоты с автопоиском
-    var slotsHtml = TOTW_FORMATION.map(function (f) {
-      var s = symState.slots[f.slot] || { name: '', club: '' };
-      var filled = !!s.name;
-      var body;
-      if (filled) {
-        var logoHtml = (window.getClubLogoMini && s.club) ? window.getClubLogoMini(s.club) : '';
-        body =
-          '<div class="totw-chosen">' +
-            '<span class="totw-chosen-kit">' + logoHtml + '</span>' +
-            '<div class="totw-chosen-info">' +
-              '<div class="totw-chosen-name">' + escapeHtml(s.short || s.name) + '</div>' +
-              '<div class="totw-chosen-club">' + escapeHtml(s.club || '—') + '</div>' +
-            '</div>' +
-            '<button type="button" class="lfld-ac-clear" onclick="window.__symClearSlot(\'' + f.slot + '\')" title="Сбросить">✕</button>' +
-          '</div>';
-      } else {
-        body =
-          '<div class="lfld-ac">' +
-            '<input type="text" class="lfld-ac-input" placeholder="Поиск: фамилия или имя" data-slot-input="' + f.slot + '" autocomplete="off">' +
-            '<div class="lfld-ac-drop" data-slot-drop="' + f.slot + '"></div>' +
-          '</div>';
-      }
-      return '<div class="totw-slot' + (filled ? ' filled' : '') + '">' +
-        '<div class="totw-slot-pos">' + f.pos + '</div>' +
-        '<div class="totw-slot-body">' + body + '</div>' +
-      '</div>';
-    }).join('');
-
-    return '<div class="admin-extras-section">' +
-      '<h3>⭐ Конструктор «Символическая сборная тура»</h3>' +
-      '<p>Формация 8×8. Игроки ищутся по мастер-реестру выбранного турнира. Клуб подтягивается автоматически.</p>' +
-      '<div class="form-row">' +
-        '<div class="form-group"><label>Турнир:</label>' +
-          '<select id="symTourneySelect" onchange="window.__symChangeTourney(this.value)">' + tourneyOpts + '</select>' +
-        '</div>' +
-        '<div class="form-group"><label>Тур:</label>' +
-          '<select id="symRoundSelect" onchange="window.__symChangeRound(this.value)">' + roundOpts + '</select>' +
-        '</div>' +
-      '</div>' +
-      '<div class="totw-admin-grid">' + slotsHtml + '</div>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">' +
-        '<button type="button" class="btn-success" onclick="window.__symPublish()">📢 Сохранить и опубликовать</button>' +
-        '<button type="button" class="btn-danger" onclick="window.__symClear()">Очистить состав</button>' +
-      '</div>' +
-      '<div class="ai-status" id="symStatus"></div>' +
-    '</div>';
-  }
-
-  /* ---------- Автопоиск по слотам ---------- */
-  function symBindAutocomplete() {
-    var pool = symPlayerPool(symState.tourneyKey);
-
-    document.querySelectorAll('[data-slot-input]').forEach(function (inp) {
-      var slot = inp.getAttribute('data-slot-input');
-      var drop = document.querySelector('[data-slot-drop="' + slot + '"]');
-      if (!drop) return;
-
-      function renderDrop(query) {
-        var q = (query || '').toLowerCase().replace(/ё/g, 'е').trim();
-        var list = pool;
-        if (q) {
-          list = pool.filter(function (p) {
-            return (p.name + ' ' + p.short).toLowerCase().replace(/ё/g, 'е').indexOf(q) !== -1;
-          });
-        }
-        var used = symUsedKeys(slot);
-        list = list.map(function (p) {
-          var k = (p.club || '') + '||' + p.name.toLowerCase();
-          return { p: p, disabled: !!used[k] };
-        });
-        list = list.slice(0, 30);
-
-        if (!list.length) {
-          drop.innerHTML = '<div class="lfld-ac-empty">Ничего не найдено</div>';
-        } else {
-          drop.innerHTML = list.map(function (x) {
-            var p = x.p;
-            var logo = (window.getClubLogoMini && p.club) ? window.getClubLogoMini(p.club) : '';
-            return '<div class="lfld-ac-item' + (x.disabled ? ' disabled' : '') + '" ' +
-              'data-name="' + escapeAttr(p.name) + '" ' +
-              'data-short="' + escapeAttr(p.short) + '" ' +
-              'data-club="' + escapeAttr(p.club) + '">' +
-              '<span class="ac-name"><strong>' + escapeHtml(p.name) + '</strong></span>' +
-              '<span class="ac-club">' + logo + escapeHtml(p.club) + '</span>' +
-            '</div>';
-          }).join('');
-        }
-
-        drop.classList.add('open');
-        drop.querySelectorAll('.lfld-ac-item').forEach(function (it) {
-          it.onmousedown = function (e) {
-            e.preventDefault();
-            if (it.classList.contains('disabled')) return;
-            symState.slots[slot] = {
-              name: it.getAttribute('data-name'),
-              short: it.getAttribute('data-short'),
-              club: it.getAttribute('data-club')
-            };
-            renderAdminExtras();
-          };
-        });
-      }
-
-      inp.oninput = function () { renderDrop(this.value); };
-      inp.onfocus = function () { renderDrop(this.value); };
-      inp.onblur = function () { setTimeout(function () { drop.classList.remove('open'); }, 200); };
-    });
-  }
-
-  /* ---------- Публичные действия ---------- */
-  window.__symChangeTourney = function (tk) {
-    symState.tourneyKey = tk;
-    var t = tournamentsData[tk];
-    var rounds = [];
-    if (t && Array.isArray(t.matches)) t.matches.forEach(function (m) { if (m.tour && rounds.indexOf(m.tour) === -1) rounds.push(m.tour); });
-    rounds.sort(function (a, b) { return (parseInt((a||'').replace(/\D/g,''))||0) - (parseInt((b||'').replace(/\D/g,''))||0); });
-    symState.round = rounds[0] || '1 ТУР';
-    symLoadFromStorage(tk, symState.round);
-    renderAdminExtras();
-  };
-
-  window.__symChangeRound = function (r) {
-    symState.round = r;
-    symLoadFromStorage(symState.tourneyKey, r);
-    renderAdminExtras();
-  };
-
-  window.__symClearSlot = function (slot) {
-    symState.slots[slot] = { name: '', short: '', club: '' };
-    renderAdminExtras();
-  };
-
-  window.__symPublish = function () {
-    var filled = TOTW_FORMATION.filter(function (f) {
-      return symState.slots[f.slot] && symState.slots[f.slot].name;
-    });
-    if (!filled.length) { alert('Заполните хотя бы одного игрока'); return; }
-    symSaveToStorage(symState.tourneyKey, symState.round);
-    var st = q('symStatus');
-    if (st) { st.className = 'ai-status show ok'; st.innerText = 'Опубликовано: ' + filled.length + ' игроков'; }
-    if (window.renderHomeSymbolic) { try { window.renderHomeSymbolic(); } catch(e) {} }
-  };
-
-  window.__symClear = function () {
-    if (!confirm('Очистить состав сборной тура?')) return;
-    symReset();
-    symSaveToStorage(symState.tourneyKey, symState.round);
-    renderAdminExtras();
-    if (window.renderHomeSymbolic) { try { window.renderHomeSymbolic(); } catch(e) {} }
+    slots: TOTW_POSITIONS.map(function (d) { return { name: '', club: '', pos: d.code, short: '' }; })
   };
 
   /* ============================================================
-     Далее — все остальные модули админки без изменений
+     ⚡ КРОППЕР — делегируется в Cropper.js (см. crop-enhanced.js)
+     window.__openCropModal(src, aspectRatio, onSave, opts)
      ============================================================ */
+  function openCropModal(imageSrc, aspectRatio, onSave, opts) {
+    if (typeof window.__openCropModal === 'function') {
+      return window.__openCropModal(imageSrc, aspectRatio, onSave, opts);
+    }
+    console.warn('[admin-extras] Cropper.js недоступен — проверьте подключение CDN в <head>');
+    alert('Кроппер недоступен: библиотека Cropper.js не загружена.');
+  }
+  // window.__openCropModal обеспечивает crop-enhanced.js — здесь его НЕ перезаписываем.
 
-  function escapeAttr(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
-  function escapeHtml(s) { return String(s || '').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-  function q(id) { return document.getElementById(id); }
-  function val(id) { var e = q(id); return e ? e.value : ''; }
-
-  /* ============ КЛУБЫ ============ */
+  /* ============================================================
+     КЛУБЫ
+     ============================================================ */
   function loadCustomClubs() {
     var list = []; try { list = JSON.parse(localStorage.getItem('ff_custom_clubs') || '[]'); } catch (e) {}
     var changed = false;
@@ -339,25 +77,9 @@
   }
   function applyBackground() { if (window.bannerManager && window.bannerManager.applyBackground) window.bannerManager.applyBackground(); }
 
-  function compressImage(file, maxW, quality, cb) {
-    var r = new FileReader();
-    r.onload = function (e) {
-      var img = new Image();
-      img.onload = function () {
-        var s = Math.min(1, maxW / img.width);
-        var c = document.createElement('canvas');
-        c.width = Math.round(img.width * s);
-        c.height = Math.round(img.height * s);
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        cb(c.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = function () { cb(e.target.result); };
-      img.src = e.target.result;
-    };
-    r.readAsDataURL(file);
-  }
-
-  /* ============ ГЛАВНОЕ ФОТО КОМАНДЫ ============ */
+  /* ============================================================
+     ГЛАВНОЕ ФОТО КОМАНДЫ
+     ============================================================ */
   function getClubMainPhotoMap() { try { return JSON.parse(localStorage.getItem('ff_club_main_photo') || '{}'); } catch(e) { return {}; } }
   function setClubMainPhoto(club, url) {
     var d = getClubMainPhotoMap();
@@ -367,13 +89,26 @@
   function saveClubMainPhotoFromForm() {
     var club = val('cmpClubSelect'); if (!club) return alert('Выберите клуб');
     var fileInput = q('cmpFileInput'); var urlInput = (val('cmpUrlInput') || '').trim();
-    function finish(url) { setClubMainPhoto(club, url); alert('Фото команды сохранено!'); renderAdminExtras(); }
+
     if (fileInput && fileInput.files && fileInput.files[0]) {
       var f = fileInput.files[0];
       if (!/^image\//.test(f.type)) return alert('Это не изображение');
-      compressImage(f, 1920, 0.85, finish);
-    } else if (urlInput) { finish(urlInput); }
-    else alert('Выберите файл или введите URL');
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        openCropModal(e.target.result, 16 / 7, function (cropped) {
+          setClubMainPhoto(club, cropped);
+          alert('Фото команды сохранено!');
+          renderAdminExtras();
+        }, { title: 'Кадрирование командного фото (16:7)', outW: 1400, outH: 612 });
+      };
+      reader.readAsDataURL(f);
+    } else if (urlInput) {
+      setClubMainPhoto(club, urlInput);
+      alert('Фото команды сохранено!');
+      renderAdminExtras();
+    } else {
+      alert('Выберите файл или введите URL');
+    }
   }
   function clearClubMainPhoto() {
     var club = val('cmpClubSelect'); if (!club) return alert('Выберите клуб');
@@ -386,11 +121,11 @@
     var selected = clubsData[0] ? clubsData[0].name : '';
     var current = map[selected] || '';
     return '<div class="admin-extras-section"><h3>🖼️ Главное командное фото</h3>' +
-      '<p>Большая фотография на странице команды.</p>' +
+      '<p>Фото в формате 16:7 для страницы команды. При загрузке файла — откроется кроппер Cropper.js с живым превью.</p>' +
       '<div class="form-row">' +
         '<div class="form-group"><label>Клуб:</label><select id="cmpClubSelect" onchange="window.__cmpOnChange()">' + clubOpts + '</select></div>' +
         '<div class="form-group"><label>Текущее фото:</label><div id="cmpCurrentPreview">' +
-          (current ? '<img src="' + current + '" style="width:180px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1;">' : '<span style="color:#64748b;font-style:italic;font-size:12px;">Не загружено</span>') +
+          (current ? '<img src="' + current + '" style="width:180px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #334155;">' : '<span style="color:#64748b;font-style:italic;font-size:12px;">Не загружено</span>') +
         '</div></div>' +
       '</div>' +
       '<div class="form-row">' +
@@ -406,168 +141,401 @@
     var map = getClubMainPhotoMap();
     var prev = q('cmpCurrentPreview'); if (!prev) return;
     var url = map[club] || '';
-    prev.innerHTML = url ? '<img src="' + url + '" style="width:180px;height:100px;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1;">' : '<span style="color:#64748b;font-style:italic;font-size:12px;">Не загружено</span>';
+    prev.innerHTML = url ? '<img src="' + url + '" style="width:180px;height:80px;object-fit:cover;border-radius:8px;border:1px solid #334155;">' : '<span style="color:#64748b;font-style:italic;font-size:12px;">Не загружено</span>';
   };
   window.__cmpSave = saveClubMainPhotoFromForm;
   window.__cmpClear = clearClubMainPhoto;
 
-  /* ============ РЕЕСТР ИГРОКОВ (компактный) ============ */
-  function renderPlayersRegistryBlock() {
-    var total = DB ? Object.keys(DB.players()).length : 0;
-    var isOpen = playerRegistryOpen;
-    var body = '';
-    if (isOpen) {
-      body = '<div class="form-row" style="margin-top:14px;">' +
-        '<div class="form-group"><label>Поиск:</label><input type="text" id="playerSearchInput" value="' + escapeHtml(playerSearchQuery) + '" placeholder="Санатуллин..." oninput="window.__playerSearch(this.value)"></div>' +
-        '<div class="form-group"><label>Фильтр по клубу:</label><select id="playerFilterClubSelect" onchange="window.__playerFilterClub(this.value)">' +
-          '<option value="">— все клубы —</option>' +
-          clubsData.map(function(c){ return '<option value="' + escapeHtml(c.name) + '"' + (playerFilterClub === c.name ? ' selected' : '') + '>' + escapeHtml(c.name) + '</option>'; }).join('') +
-        '</select></div></div>' +
-        '<div id="playersRegistryList">' + renderPlayersList() + '</div>' +
-        '<div id="peEditorWrap"></div>';
-    }
-    return '<div class="admin-extras-section">' +
-      '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
-        '<h3 style="margin:0;">👥 Реестр игроков <span style="color:#64748b;font-weight:400;">(' + total + ')</span></h3>' +
-        '<button type="button" class="registry-toggle-btn" onclick="window.__togglePlayerRegistry()">' +
-          (isOpen ? '▲ Свернуть' : '▼ Развернуть реестр') +
-        '</button>' +
-      '</div>' +
-      (isOpen ? '' : '<p style="margin-top:8px;">Свёрнут. Нажмите «Развернуть реестр», чтобы искать, редактировать и загружать фото игроков.</p>') +
-      body + '</div>';
-  }
-  window.__togglePlayerRegistry = function () { playerRegistryOpen = !playerRegistryOpen; renderAdminExtras(); };
-  window.__playerFilterClub = function (v) { playerFilterClub = v || ''; var listEl = q('playersRegistryList'); if (listEl) listEl.innerHTML = renderPlayersList(); };
+  /* ============================================================
+     ⚡ ИНДЕКС ИГРОКОВ СТРОГО ПО ТЕКУЩЕМУ ТУРНИРУ
+     ============================================================ */
+  var TOURNEY_MASTER_MAP = {
+    '5x5':               'tournament_5x5',
+    '7x7':               'tournament_7x7',
+    'night_league_8x8':  'tournament_night',
+    'cup_5x5':           'cup_5x5',
+    'cup_metallist_2026':'cup_metallist_2026'
+  };
+  var symPlayerIndexCache = { key: null, list: [] };
 
-  function renderPlayersList() {
-    if (!DB) return '<p style="color:#64748b">Модуль database.js не загружен</p>';
-    var all = DB.players();
-    var list = Object.keys(all).map(function (id) { return all[id]; });
-    var qq = playerSearchQuery.toLowerCase().replace(/ё/g, 'е').trim();
-    if (qq) {
-      list = list.filter(function (p) {
-        var s = (p.lastName + ' ' + p.firstName + ' ' + p.middleName).toLowerCase().replace(/ё/g, 'е');
-        if (s.indexOf(qq) !== -1) return true;
-        return (p.aliases || []).some(function (a) { return a.toLowerCase().indexOf(qq) !== -1; });
+  function buildTourneyPlayerIndex(tourneyKey) {
+    if (symPlayerIndexCache.key === tourneyKey && symPlayerIndexCache.list.length) {
+      return symPlayerIndexCache.list;
+    }
+    var masterKey = TOURNEY_MASTER_MAP[tourneyKey];
+    var M = window.LFLD_MASTER_DB;
+    var list = [];
+
+    if (M && masterKey && M[masterKey]) {
+      var mt = M[masterKey];
+      if (masterKey === 'cup_5x5' && Array.isArray(mt.players)) {
+        mt.players.forEach(function (p) {
+          if (!p || !p.name) return;
+          list.push({ name: p.name, team: p.team || '—', position: p.pos || 'УНИ' });
+        });
+      } else if (mt.teams && typeof mt.teams === 'object') {
+        Object.keys(mt.teams).forEach(function (club) {
+          (mt.teams[club] || []).forEach(function (p) {
+            if (!p || !p.name) return;
+            list.push({ name: p.name, team: club, position: p.pos || 'УНИ' });
+          });
+        });
+      }
+    }
+
+    if (!list.length && DB && DB.getRoster) {
+      var t = tournamentsData[tourneyKey];
+      var teams = (t && t.teams) || [];
+      teams.forEach(function (club) {
+        var r = DB.getRoster(tourneyKey, club);
+        r.forEach(function (item) {
+          var p = DB.getPlayer(item.playerId);
+          if (!p) return;
+          var fio = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
+          if (!fio) return;
+          list.push({ name: fio, team: club, position: item.pos || p.position || 'УНИ' });
+        });
       });
     }
-    if (playerFilterClub) list = list.filter(function (p) { return (p.clubs || []).indexOf(playerFilterClub) !== -1; });
-    list.sort(function (a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
-    if (!list.length) return '<p style="color:#64748b;font-style:italic;padding:20px;">Никого не найдено</p>';
-    var html = '<table class="roster-table"><thead><tr>' +
-      '<th style="width:50px;">Фото</th><th class="text-left">ФИО</th>' +
-      '<th style="width:90px;">Дата рожд.</th><th style="width:70px;">Позиция</th>' +
-      '<th style="width:60px;">Голы</th><th style="width:60px;">Игры</th><th style="width:60px;">Нагр.</th>' +
-      '<th style="width:200px;"></th></tr></thead><tbody>';
-    list.slice(0, 200).forEach(function (p) {
-      var fio = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
-      var photoHtml = p.photo
-        ? '<img src="' + p.photo + '" style="width:36px;height:44px;object-fit:cover;border-radius:4px;">'
-        : '<div style="width:36px;height:44px;border-radius:4px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:18px;opacity:0.5;">👤</div>';
-      html += '<tr>' +
-        '<td>' + photoHtml + '</td>' +
-        '<td class="text-left"><strong>' + escapeHtml(fio) + '</strong></td>' +
-        '<td>' + (p.birthDate || '—') + '</td>' +
-        '<td><span class="pos-badge pos-' + (p.position || 'УНИ').toLowerCase() + '">' + (p.position || 'УНИ') + '</span></td>' +
-        '<td>' + (p.stats.goals || 0) + '</td>' +
-        '<td>' + (p.stats.matches || 0) + '</td>' +
-        '<td>' + ((p.awards || []).length) + '</td>' +
-        '<td><button type="button" onclick="window.__editPlayer(\'' + p.id + '\')">Ред.</button> ' +
-        '<button type="button" class="award-give-btn" onclick="window.__giveAward(\'' + p.id + '\')">🏆 Награда</button></td>' +
-        '</tr>';
+
+    var seen = {};
+    list = list.filter(function (p) {
+      var k = norm(p.name) + '|' + norm(p.team);
+      if (seen[k]) return false;
+      seen[k] = 1;
+      return true;
     });
-    html += '</tbody></table>';
-    return html;
+
+    symPlayerIndexCache.key = tourneyKey;
+    symPlayerIndexCache.list = list;
+    return list;
   }
 
-  window.__playerSearch = function (v) { playerSearchQuery = v || ''; var listEl = q('playersRegistryList'); if (listEl) listEl.innerHTML = renderPlayersList(); };
+  function highlightMatch(name, qStr) {
+    if (!qStr) return escapeHtml(name);
+    var n = name.toLowerCase().replace(/ё/g,'е');
+    var idx = n.indexOf(qStr);
+    if (idx === -1) return escapeHtml(name);
+    return escapeHtml(name.slice(0, idx)) + '<strong style="color:#fbbf24;">' + escapeHtml(name.slice(idx, idx + qStr.length)) + '</strong>' + escapeHtml(name.slice(idx + qStr.length));
+  }
 
-  window.__giveAward = function (playerId) {
-    var p = DB.getPlayer(playerId); if (!p) return;
-    var fio = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
-    var presets = [
-      'Лучший молодой игрок (Первенство 5х5)',
-      'Лучший бомбардир (Кубок ЛФЛД 5х5)',
-      'Лучший игрок (Первенство 5х5)',
-      'Лучший защитник (Первенство 5х5)',
-      'Лучший вратарь (Первенство 5х5)',
-      'Победитель Кубка ЛФЛД 5х5',
-      'Финалист Кубка ЛФЛД 5х5',
-      'Символическая сборная тура (Ночная лига 8х8, 1 тур)'
-    ];
-    var chosen = prompt('Введите награду для ' + fio + ':\n\nПодсказки:\n- ' + presets.join('\n- '), p.awards && p.awards.length ? '' : presets[0]);
-    if (!chosen || !chosen.trim()) return;
-    DB.awardPlayer(playerId, chosen.trim());
-    alert('Награда вручена!');
-    var listEl = q('playersRegistryList'); if (listEl) listEl.innerHTML = renderPlayersList();
-  };
+  function renderSymDrop(idx, query, drop) {
+    var qn = String(query || '').toLowerCase().replace(/ё/g,'е').trim();
+    if (qn.length < 1) { drop.classList.remove('open'); drop.innerHTML = ''; return; }
 
-  window.__editPlayer = function (playerId) {
-    var p = DB.getPlayer(playerId); if (!p) return;
-    playerEditState.playerId = playerId;
-    var fio = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
-    var awards = (p.awards || []).map(function (a, i) {
-      return '<div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:6px 10px;border-radius:6px;margin-bottom:4px;">' +
-        '<span>🏆 ' + escapeHtml(a) + '</span>' +
-        '<button type="button" class="btn-danger" style="padding:2px 8px!important;font-size:11px;" onclick="window.__removeAward(\'' + escapeAttr(playerId) + '\',' + i + ')">✕</button></div>';
-    }).join('') || '<p style="color:#64748b;font-style:italic;font-size:12px;">Наград нет</p>';
+    var all = buildTourneyPlayerIndex(symState.tourneyKey);
+    if (!all.length) {
+      drop.innerHTML = '<div class="lfld-ac-empty">Для турнира «' + escapeHtml((tournamentsData[symState.tourneyKey] && tournamentsData[symState.tourneyKey].title) || symState.tourneyKey) + '» нет заявок. Проверьте базу.</div>';
+      drop.classList.add('open');
+      drop._activeIdx = -1;
+      return;
+    }
+
+    var matches = all.filter(function (p) {
+      return p.name.toLowerCase().replace(/ё/g,'е').indexOf(qn) !== -1;
+    });
+
+    matches.sort(function (a, b) {
+      var an = a.name.toLowerCase().replace(/ё/g,'е');
+      var bn = b.name.toLowerCase().replace(/ё/g,'е');
+      var aStart = an.indexOf(qn) === 0;
+      var bStart = bn.indexOf(qn) === 0;
+      if (aStart !== bStart) return aStart ? -1 : 1;
+      return an.localeCompare(bn);
+    });
+    matches = matches.slice(0, 30);
+
+    if (!matches.length) {
+      drop.innerHTML = '<div class="lfld-ac-empty">Совпадений нет. Попробуйте другую букву или проверьте турнир.</div>';
+      drop.classList.add('open');
+      drop._activeIdx = -1;
+      return;
+    }
+
+    drop.innerHTML = matches.map(function (p, i) {
+      var logoHtml = window.getClubLogoMini ? window.getClubLogoMini(p.team) : '⚽';
+      return '<div class="lfld-ac-item" data-i="' + i + '" data-name="' + escapeAttr(p.name) + '" data-team="' + escapeAttr(p.team) + '" data-pos="' + escapeAttr(p.position || 'УНИ') + '">' +
+        '<div class="ac-name">' + highlightMatch(p.name, qn) + '</div>' +
+        '<div class="ac-club">' + logoHtml + '<span>' + escapeHtml(p.team) + '</span></div>' +
+      '</div>';
+    }).join('');
+    drop.classList.add('open');
+    drop._activeIdx = -1;
+  }
+
+  function setSymActive(drop, idx) {
+    var items = drop.querySelectorAll('.lfld-ac-item');
+    items.forEach(function (it, i) { it.classList.toggle('active', i === idx); });
+    drop._activeIdx = idx;
+    if (items[idx]) { try { items[idx].scrollIntoView({ block: 'nearest' }); } catch (e) {} }
+  }
+
+  function selectSymPlayer(slotIdx, name, team, pos) {
+    var code = TOTW_POSITIONS[slotIdx].code;
+    symState.slots[slotIdx] = { name: name, club: team, pos: code, short: (String(name).split(/\s+/)[0] || name) };
+    rerenderSymSlot(slotIdx);
+  }
+
+  function clearSymSlot(slotIdx) {
+    var code = TOTW_POSITIONS[slotIdx].code;
+    symState.slots[slotIdx] = { name: '', club: '', pos: code, short: '' };
+    rerenderSymSlot(slotIdx);
+  }
+
+  function renderSymSlot(slot, idx) {
+    var def = TOTW_POSITIONS[idx];
+    var player = slot || { name: '', club: '', pos: def.code, short: '' };
+    var name = player.name || '';
+    var club = player.club || '';
+    var hasValue = !!name && !!club;
+
+    var kitHtml = hasValue && window.getClubLogoMini ? window.getClubLogoMini(club) : '⚽';
+
+    var acBlock =
+      '<div class="lfld-ac" data-idx="' + idx + '"' + (hasValue ? ' style="display:none;"' : '') + '>' +
+        '<input type="text" class="lfld-ac-input" autocomplete="off" placeholder="Начните вводить фамилию...">' +
+        '<button type="button" class="lfld-ac-clear" style="display:none;" title="Очистить">✕</button>' +
+        '<div class="lfld-ac-drop"></div>' +
+      '</div>';
+
+    var chosenBlock =
+      '<div class="totw-chosen" style="display:' + (hasValue ? 'flex' : 'none') + ';">' +
+        '<span class="totw-chosen-kit">' + kitHtml + '</span>' +
+        '<div class="totw-chosen-info">' +
+          '<div class="totw-chosen-name">' + escapeHtml(name || '—') + '</div>' +
+          '<div class="totw-chosen-club">' + escapeHtml(club || '—') + '</div>' +
+        '</div>' +
+        '<button type="button" class="totw-chosen-clear" title="Изменить">✕</button>' +
+      '</div>';
+
+    return '<div class="totw-slot' + (hasValue ? ' filled' : '') + '" data-idx="' + idx + '" data-pos="' + escapeAttr(def.code) + '">' +
+      '<div class="totw-slot-pos" title="' + escapeAttr(def.label) + '">' + escapeHtml(def.short) + '</div>' +
+      '<div class="totw-slot-body">' + acBlock + chosenBlock + '</div>' +
+    '</div>';
+  }
+
+  function rerenderSymSlot(idx) {
+    var wrap = q('symSlotsWrap');
+    if (!wrap) return;
+    var oldSlot = wrap.querySelector('.totw-slot[data-idx="' + idx + '"]');
+    if (!oldSlot) return;
+    var div = document.createElement('div');
+    div.innerHTML = renderSymSlot(symState.slots[idx], idx);
+    var newSlot = div.firstChild;
+    oldSlot.parentNode.replaceChild(newSlot, oldSlot);
+  }
+
+  function renderSymSlotsList() {
+    var wrap = q('symSlotsWrap');
+    if (!wrap) return;
     var html = '';
-    html += '<div class="form-row"><div class="form-group"><label>Фамилия</label><input type="text" id="peLastName" value="' + escapeHtml(p.lastName) + '"></div>' +
-      '<div class="form-group"><label>Имя</label><input type="text" id="peFirstName" value="' + escapeHtml(p.firstName || '') + '"></div>' +
-      '<div class="form-group"><label>Отчество</label><input type="text" id="peMiddleName" value="' + escapeHtml(p.middleName || '') + '"></div></div>';
-    html += '<div class="form-row"><div class="form-group"><label>Дата рождения</label><input type="text" id="peBirth" value="' + escapeHtml(p.birthDate || '') + '"></div>' +
-      '<div class="form-group"><label>Позиция</label><select id="pePos">' +
-        ['ВРТ','ЗАЩ','ПЗ','НАП','УНИ'].map(function (x) { return '<option value="' + x + '"' + (p.position === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') +
-      '</select></div></div>';
-    html += '<div class="form-group"><label>Фото игрока (3:4)</label><div style="display:flex;gap:14px;align-items:center;">' +
-      '<div id="pePhotoPreview" style="width:90px;height:120px;border-radius:8px;overflow:hidden;background:#f1f5f9;border:1px solid #cbd5e1;display:flex;align-items:center;justify-content:center;">' +
-        (p.photo ? '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover;">' : '<span style="font-size:34px;opacity:0.4;">👤</span>') +
-      '</div><div style="flex:1;"><input type="file" id="pePhotoFile" accept="image/*"><button type="button" class="btn-danger" style="margin-top:8px;padding:5px 12px!important;font-size:11px;" onclick="window.__clearPlayerPhoto(\'' + escapeAttr(playerId) + '\')">Удалить фото</button></div></div></div>';
-    html += '<div class="form-group"><label>Алиасы (по одному в строке)</label><textarea id="peAliases" rows="3">' + escapeHtml((p.aliases || []).join('\n')) + '</textarea></div>';
-    html += '<div class="form-group"><label>Награды</label><div>' + awards + '</div>' +
-      '<div style="display:flex;gap:8px;margin-top:8px;"><input type="text" id="peNewAward" placeholder="Лучший бомбардир">' +
-      '<button type="button" class="btn-success" style="white-space:nowrap;" onclick="window.__addAward(\'' + escapeAttr(playerId) + '\')">+ Добавить</button></div></div>';
-    html += '<div class="ai-actions" style="margin-top:20px;"><button type="button" class="btn-success" onclick="window.__savePlayer()">💾 Сохранить</button> ' +
-      '<button type="button" class="btn-secondary" onclick="window.__closePlayerEditor()">Отмена</button></div>';
-    var wrap = q('peEditorWrap'); if (!wrap) return;
-    wrap.innerHTML = '<div class="admin-extras-section" style="margin-top:16px;"><h3>✏️ Редактирование: ' + escapeHtml(fio) + '</h3>' + html + '</div>';
-    var pf = q('pePhotoFile');
-    if (pf) pf.onchange = function () {
-      var f = this.files[0]; if (!f) return;
-      compressImage(f, 400, 0.85, function (dataUrl) {
-        DB.updatePlayer(playerId, { photo: dataUrl });
-        var prev = q('pePhotoPreview'); if (prev) prev.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;object-fit:cover;">';
-      });
-    };
-    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  };
+    TOTW_POSITIONS.forEach(function (def, i) { html += renderSymSlot(symState.slots[i], i); });
+    wrap.innerHTML = html;
+  }
 
-  window.__closePlayerEditor = function () { var wrap = q('peEditorWrap'); if (wrap) wrap.innerHTML = ''; playerEditState.playerId = null; };
-  window.__savePlayer = function () {
-    var id = playerEditState.playerId; if (!id || !DB.getPlayer(id)) return;
-    var aliases = val('peAliases').split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
-    DB.updatePlayer(id, {
-      lastName: val('peLastName').trim(), firstName: val('peFirstName').trim(),
-      middleName: val('peMiddleName').trim(), birthDate: val('peBirth').trim(),
-      position: val('pePos'), aliases: aliases
+  function renderSymbolicBlock() {
+    var tourneyOpts = Object.keys(tournamentsData).map(function (k) {
+      return '<option value="' + k + '"' + (symState.tourneyKey === k ? ' selected' : '') + '>' + tournamentsData[k].title + '</option>';
+    }).join('');
+    var tours = [];
+    var t = tournamentsData[symState.tourneyKey];
+    if (t && Array.isArray(t.matches)) { t.matches.forEach(function(m){ if (m.tour && tours.indexOf(m.tour) === -1) tours.push(m.tour); }); }
+    tours.sort(function(a,b){ return (parseInt((a||'').replace(/\D/g,''))||0) - (parseInt((b||'').replace(/\D/g,''))||0); });
+    if (!tours.length) tours = ['1 ТУР'];
+    var tourOpts = tours.map(function(r){
+      return '<option value="' + escapeHtml(r) + '"' + (symState.round === r ? ' selected' : '') + '>' + escapeHtml(r) + '</option>';
+    }).join('');
+
+    return '<div class="admin-extras-section">' +
+      '<h3>⭐ Символическая сборная тура · 8 фиксированных позиций</h3>' +
+      '<p>Вводите фамилию — подсказки показывают только игроков <strong>текущего турнира</strong> с актуальным клубом и эмблемой. Схема: ВРТ · 2 защитника · 2 полузащитника · 2 фланговых · 1 нападающий.</p>' +
+      '<div class="form-row">' +
+        '<div class="form-group"><label>Турнир:</label><select id="symTourneySelect" onchange="window.__symChangeTourney(this.value)">' + tourneyOpts + '</select></div>' +
+        '<div class="form-group"><label>Тур:</label><select id="symRoundSelect" onchange="window.__symChangeRound(this.value)">' + tourOpts + '</select></div>' +
+      '</div>' +
+      '<div class="totw-admin-grid" id="symSlotsWrap"></div>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">' +
+        '<button type="button" class="btn-secondary" onclick="window.__symFillEmpty()">Очистить пустые</button>' +
+        '<button type="button" class="btn-success" onclick="window.__symPublish()">📢 Опубликовать сборную</button>' +
+        '<button type="button" class="btn-danger" onclick="window.__symClear()">Очистить всю</button>' +
+      '</div>' +
+      '<div class="ai-status" id="symStatus"></div>' +
+      '</div>';
+  }
+
+  window.__symChangeTourney = function (tk) {
+    symState.tourneyKey = tk; symState.round = '1 ТУР';
+    symPlayerIndexCache.key = null;
+    var loaded = loadSymbolicFromStorage(tk, symState.round);
+    symState.slots = loaded ? loaded.slots : TOTW_POSITIONS.map(function (d) { return { name: '', club: '', pos: d.code, short: '' }; });
+    normalizeSlotsAgainstIndex();
+    renderAdminExtras();
+  };
+  window.__symChangeRound = function (r) {
+    symState.round = r;
+    var loaded = loadSymbolicFromStorage(symState.tourneyKey, r);
+    symState.slots = loaded ? loaded.slots : TOTW_POSITIONS.map(function (d) { return { name: '', club: '', pos: d.code, short: '' }; });
+    normalizeSlotsAgainstIndex();
+    renderAdminExtras();
+  };
+  window.__symFillEmpty = function () {
+    symState.slots = symState.slots.map(function (s, i) {
+      if (!s || !s.name || !s.club) return { name: '', club: '', pos: TOTW_POSITIONS[i].code, short: '' };
+      return s;
     });
-    alert('Сохранено'); renderAdminExtras();
+    renderAdminExtras();
   };
-  window.__clearPlayerPhoto = function (id) {
-    if (!confirm('Удалить фото?')) return;
-    DB.updatePlayer(id, { photo: '' });
-    var prev = q('pePhotoPreview'); if (prev) prev.innerHTML = '<span style="font-size:34px;opacity:0.4;">👤</span>';
+  window.__symPublish = function () {
+    var filled = symState.slots.filter(function (p) { return p.name && p.club; });
+    if (!filled.length) {
+      var st = q('symStatus');
+      if (st) { st.className = 'ai-status show err'; st.innerText = 'Заполните хотя бы одну позицию'; }
+      return;
+    }
+    saveSymbolicToStorage(symState.tourneyKey, symState.round, symState.slots);
+    var st = q('symStatus');
+    if (st) { st.className = 'ai-status show ok'; st.innerText = 'Опубликовано: ' + filled.length + ' из ' + TOTW_POSITIONS.length + ' позиций'; }
+    if (window.renderHomeSymbolic) window.renderHomeSymbolic();
+    if (window.LFLD_V2 && window.LFLD_V2.renderHomeTOTW) window.LFLD_V2.renderHomeTOTW();
   };
-  window.__addAward = function (id) {
-    var v = val('peNewAward').trim(); if (!v) return;
-    DB.awardPlayer(id, v); window.__editPlayer(id);
-  };
-  window.__removeAward = function (id, idx) {
-    var p = DB.getPlayer(id); if (!p) return;
-    p.awards.splice(idx, 1); DB.save(); window.__editPlayer(id);
+  window.__symClear = function () {
+    if (!confirm('Очистить всю сборную тура?')) return;
+    symState.slots = TOTW_POSITIONS.map(function (d) { return { name: '', club: '', pos: d.code, short: '' }; });
+    saveSymbolicToStorage(symState.tourneyKey, symState.round, symState.slots);
+    renderAdminExtras();
+    if (window.renderHomeSymbolic) window.renderHomeSymbolic();
+    if (window.LFLD_V2 && window.LFLD_V2.renderHomeTOTW) window.LFLD_V2.renderHomeTOTW();
   };
 
-  /* ============ ФОТО КЛУБОВ ============ */
+  function normalizeSlotsAgainstIndex() {
+    var index = buildTourneyPlayerIndex(symState.tourneyKey);
+    if (!index.length) return;
+    symState.slots = symState.slots.map(function (s, i) {
+      if (!s || !s.name) return { name: '', club: '', pos: TOTW_POSITIONS[i].code, short: '' };
+      var byName = index.filter(function (p) { return norm(p.name) === norm(s.name); });
+      if (!byName.length) return s;
+      var exact = byName.find(function (p) { return norm(p.team) === norm(s.club); });
+      var team = exact ? exact.team : byName[0].team;
+      return { name: s.name, club: team, pos: TOTW_POSITIONS[i].code, short: s.short || (s.name.split(/\s+/)[0] || s.name) };
+    });
+  }
+
+  /* ---------- Делегированные обработчики автокомплита ---------- */
+  if (!window.__symAcGlobalBound) {
+    window.__symAcGlobalBound = true;
+
+    document.addEventListener('input', function (e) {
+      var input = e.target;
+      if (!input || !input.classList || !input.classList.contains('lfld-ac-input')) return;
+      var ac = input.closest('.lfld-ac'); if (!ac) return;
+      var drop = ac.querySelector('.lfld-ac-drop'); if (!drop) return;
+      var idx = parseInt(ac.getAttribute('data-idx'), 10) || 0;
+      renderSymDrop(idx, input.value, drop);
+      var clearBtn = ac.querySelector('.lfld-ac-clear');
+      if (clearBtn) clearBtn.style.display = input.value ? 'block' : 'none';
+    }, true);
+
+    document.addEventListener('focusin', function (e) {
+      var input = e.target;
+      if (!input || !input.classList || !input.classList.contains('lfld-ac-input')) return;
+      var ac = input.closest('.lfld-ac'); if (!ac) return;
+      var drop = ac.querySelector('.lfld-ac-drop'); if (!drop) return;
+      var idx = parseInt(ac.getAttribute('data-idx'), 10) || 0;
+      renderSymDrop(idx, input.value, drop);
+    }, true);
+
+    document.addEventListener('keydown', function (e) {
+      var input = e.target;
+      if (!input || !input.classList || !input.classList.contains('lfld-ac-input')) return;
+      var ac = input.closest('.lfld-ac'); if (!ac) return;
+      var drop = ac.querySelector('.lfld-ac-drop');
+      if (!drop || !drop.classList.contains('open')) return;
+      var items = drop.querySelectorAll('.lfld-ac-item');
+      if (!items.length) return;
+      var activeIdx = (drop._activeIdx == null) ? -1 : drop._activeIdx;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIdx = Math.min(items.length - 1, activeIdx + 1);
+        setSymActive(drop, activeIdx);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIdx = Math.max(0, activeIdx - 1);
+        setSymActive(drop, activeIdx);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (activeIdx < 0) activeIdx = 0;
+        var it = items[activeIdx]; if (!it) return;
+        var idx = parseInt(ac.getAttribute('data-idx'), 10) || 0;
+        selectSymPlayer(idx, it.getAttribute('data-name'), it.getAttribute('data-team'), it.getAttribute('data-pos'));
+      } else if (e.key === 'Escape') {
+        drop.classList.remove('open');
+      }
+    }, true);
+
+    document.addEventListener('click', function (e) {
+      var item = e.target.closest && e.target.closest('.lfld-ac-item');
+      if (item) {
+        var ac = item.closest('.lfld-ac');
+        var idx = parseInt(ac.getAttribute('data-idx'), 10) || 0;
+        selectSymPlayer(idx, item.getAttribute('data-name'), item.getAttribute('data-team'), item.getAttribute('data-pos'));
+        e.preventDefault();
+        return;
+      }
+      var acClear = e.target.closest && e.target.closest('.lfld-ac-clear');
+      if (acClear) {
+        var ac2 = acClear.closest('.lfld-ac');
+        var input2 = ac2.querySelector('.lfld-ac-input');
+        var drop2 = ac2.querySelector('.lfld-ac-drop');
+        if (input2) { input2.value = ''; input2.focus(); }
+        if (drop2) { drop2.innerHTML = ''; drop2.classList.remove('open'); }
+        acClear.style.display = 'none';
+        e.preventDefault();
+        return;
+      }
+      var chosenClear = e.target.closest && e.target.closest('.totw-chosen-clear');
+      if (chosenClear) {
+        var slot = chosenClear.closest('.totw-slot');
+        var idx3 = parseInt(slot.getAttribute('data-idx'), 10) || 0;
+        clearSymSlot(idx3);
+        e.preventDefault();
+        return;
+      }
+      if (!e.target.closest || !e.target.closest('.lfld-ac')) {
+        document.querySelectorAll('.lfld-ac-drop.open').forEach(function (d) { d.classList.remove('open'); });
+      }
+    }, true);
+  }
+
+  /* ---------- Хранилище сборных ---------- */
+  function loadSymbolicFromStorage(tk, round) {
+    try {
+      var all = JSON.parse(localStorage.getItem('ff_symbolic_teams') || '{}');
+      var payload = all[tk + '|' + round];
+      if (!payload) return null;
+      if (!payload.slots && Array.isArray(payload.players)) {
+        var slots = TOTW_POSITIONS.map(function (d) { return { name: '', club: '', pos: d.code, short: '' }; });
+        payload.players.forEach(function (p, i) {
+          if (i < slots.length && p && p.name) {
+            slots[i] = { name: p.name, club: p.club || '', pos: slots[i].pos, short: p.short || (String(p.name).split(/\s+/)[0] || '') };
+          }
+        });
+        payload.slots = slots;
+      }
+      return payload;
+    } catch(e) { return null; }
+  }
+  function saveSymbolicToStorage(tk, round, slots) {
+    var all = {};
+    try { all = JSON.parse(localStorage.getItem('ff_symbolic_teams') || '{}'); } catch(e) {}
+    all[tk + '|' + round] = { tourneyKey: tk, round: round, slots: slots };
+    localStorage.setItem('ff_symbolic_teams', JSON.stringify(all));
+    if (window.database && window.database.saveSymbolicTeam) window.database.saveSymbolicTeam(tk, round, slots);
+  }
+
+  /* ============================================================
+     ФОТО КЛУБОВ (галерея)
+     ============================================================ */
   function uploadTeamPhotos() {
     var club = val('photoClubSelect'); var tourney = val('photoTourneySelect'); var caption = val('photoCaption');
     var input = q('teamPhotosInput');
@@ -591,6 +559,23 @@
       });
     });
   }
+  function compressImage(file, maxW, quality, cb) {
+    var r = new FileReader();
+    r.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        var s = Math.min(1, maxW / img.width);
+        var c = document.createElement('canvas');
+        c.width = Math.round(img.width * s);
+        c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        cb(c.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = function () { cb(e.target.result); };
+      img.src = e.target.result;
+    };
+    r.readAsDataURL(file);
+  }
   function deleteTeamPhoto(club, idx) {
     if (!confirm('Удалить фото?')) return;
     if (window.teamPhotos && window.teamPhotos[club]) {
@@ -602,8 +587,10 @@
   }
   window.__deleteTeamPhoto = deleteTeamPhoto;
 
-  /* ============ AI ПАРСИНГ ============ */
-  function normalizeName(s) { return (s || '').toLowerCase().replace(/ё/g, 'е').replace(/[^а-яa-z0-9\s\-]/gi, '').replace(/\s+/g, ' ').trim(); }
+  /* ============================================================
+     AI-ПАРСИНГ ЗАЯВОК
+     ============================================================ */
+  function normalizeName(s) { return (s || '').toLowerCase().replace(/ё/g,'е').replace(/[^а-яa-z0-9\s\-]/gi,'').replace(/\s+/g,' ').trim(); }
   function cleanPlayerName(raw) {
     var s = String(raw || '');
     s = s.replace(/^\s*\d+\s*[.)\-–—:]\s*/, '').replace(/^\s*[\-–—•*·>]+\s*/, '');
@@ -698,7 +685,9 @@
     openRosterPreview(tk, groups);
   }
 
-  /* ============ РОСТЕР ============ */
+  /* ============================================================
+     РОСТЕР КЛУБА
+     ============================================================ */
   function getRosterOfClub(tk, club) {
     if (!club) return [];
     var result = [];
@@ -723,7 +712,9 @@
     return result.sort(function (a, b) { return (a.short || '').localeCompare(b.short || ''); });
   }
 
-  /* ============ ПРОТОКОЛ МАТЧА ============ */
+  /* ============================================================
+     ПРОТОКОЛ МАТЧА
+     ============================================================ */
   function syncGoalsToScore(arr, n) {
     n = Math.max(0, parseInt(n) || 0);
     while (arr.length < n) arr.push({ playerId: null, player: '', assistId: null, assist: '', minute: '', type: 'goal' });
@@ -946,7 +937,9 @@
     alert('Протокол сохранён!');
   }
 
-  /* ============ КОНСТРУКТОР РАСПИСАНИЯ ============ */
+  /* ============================================================
+     КОНСТРУКТОР РАСПИСАНИЯ
+     ============================================================ */
   function renderFixtureBlock() {
     var opts = Object.keys(tournamentsData).map(function (k) { return '<option value="' + k + '">' + tournamentsData[k].title + '</option>'; }).join('');
     return '<div class="admin-extras-section"><h3>Конструктор расписания</h3>' +
@@ -993,7 +986,9 @@
     renderFbList(); alert('Матч назначен');
   }
 
-  /* ============ ГАЛЕРЕЯ / БАННЕР ============ */
+  /* ============================================================
+     ГАЛЕРЕЯ + БАННЕР
+     ============================================================ */
   function renderTeamPhotosBlock() {
     var clubOpts = clubsData.map(function (c) { return '<option value="' + c.name + '">' + c.name + '</option>'; }).join('');
     var tourneyOpts = '<option value="">— все турниры —</option>' + Object.keys(tournamentsData).map(function (k) { return '<option value="' + k + '">' + tournamentsData[k].title + '</option>'; }).join('');
@@ -1022,10 +1017,10 @@
     if (slides.length) {
       thumbs = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:14px 0;">';
       slides.forEach(function (s, i) {
-        thumbs += '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">' +
+        thumbs += '<div style="background:#0d1527;border:1px solid #1e293b;border-radius:8px;overflow:hidden;">' +
           '<img src="' + s.url + '" style="width:100%;height:90px;object-fit:cover;display:block;opacity:' + (s.enabled ? 1 : 0.35) + ';">' +
           '<div style="padding:8px;display:flex;flex-direction:column;gap:6px;">' +
-            '<label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;"><input type="checkbox" ' + (s.enabled ? 'checked' : '') + ' onchange="window.__bannerToggle(' + i + ', this.checked)"> Показ</label>' +
+            '<label style="display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer;color:#cbd5e1;"><input type="checkbox" ' + (s.enabled ? 'checked' : '') + ' onchange="window.__bannerToggle(' + i + ', this.checked)"> Показ</label>' +
             '<button type="button" class="btn-danger" onclick="window.__bannerRemove(' + i + ')" style="padding:3px 6px!important;font-size:10px;">Удалить</button>' +
           '</div></div>';
       });
@@ -1033,7 +1028,7 @@
     } else thumbs = '<p style="color:#64748b;font-style:italic;margin:12px 0;">Слайдов нет.</p>';
     return '<div class="admin-extras-section"><h3>🖼️ Галерея главной</h3>' +
       '<div class="form-row"><div class="form-group"><label>URL слайда:</label><div style="display:flex;gap:8px;"><input type="text" id="bannerUrlInput" placeholder="https://..." style="flex:1;"><button type="button" id="bannerUrlAddBtn" class="btn-success">+ Добавить</button></div></div></div>' +
-      '<div class="form-row"><div class="form-group"><label>Или файл:</label><input type="file" id="bannerFileInput" accept="image/*"></div></div>' +
+      '<div class="form-row"><div class="form-group"><label>Или файл (откроется Cropper.js 21:9):</label><input type="file" id="bannerFileInput" accept="image/*"></div></div>' +
       '<div class="form-row"><div class="form-group"><label>Интервал:</label><select id="bannerIntervalSelect">' +
         '<option value="3000"' + (interval === 3000 ? ' selected' : '') + '>3 сек</option>' +
         '<option value="4000"' + (interval === 4000 ? ' selected' : '') + '>4 сек</option>' +
@@ -1043,6 +1038,9 @@
   window.__bannerToggle = function (i, v) { if (window.bannerManager) window.bannerManager.toggleSlide(i, v); };
   window.__bannerRemove = function (i) { if (!confirm('Удалить слайд?')) return; if (window.bannerManager) window.bannerManager.removeSlide(i); renderAdminExtras(); };
 
+  /* ============================================================
+     AI-БЛОК / ОРГАНИЗАТОРЫ / КОНСТРУКТОР
+     ============================================================ */
   function renderAiBlock() {
     var opts = Object.keys(tournamentsData).map(function (k) { return '<option value="' + k + '">' + tournamentsData[k].title + '</option>'; }).join('');
     return '<div class="admin-extras-section"><h3>AI-парсинг заявок</h3>' +
@@ -1051,7 +1049,6 @@
       '<div class="ai-actions"><button type="button" id="aiParseBtn" class="btn-success">Распознать</button> <button type="button" id="aiClearBtn" class="btn-secondary">Очистить</button></div>' +
       '<div class="ai-status" id="aiStatus"></div></div>';
   }
-
   function renderOrganizersBlock() {
     var list = (window.organizersData || []).map(function (c, i) {
       return '<div class="fixture-item"><span class="fixture-pair"><strong>' + (c.name || '') + '</strong>' + (c.role ? ' — ' + c.role : '') + '</span><button type="button" onclick="window.__orgRemove(' + i + ')" class="btn-danger" style="padding:5px 10px!important;font-size:11px;">Удалить</button></div>';
@@ -1097,7 +1094,161 @@
     renderAdminExtras();
   }
 
-  /* ============ BIND EVENTS ============ */
+  /* ============================================================
+     РЕЕСТР ИГРОКОВ
+     ============================================================ */
+  function renderPlayersRegistryBlock() {
+    var total = DB ? Object.keys(DB.players()).length : 0;
+    var isOpen = playerRegistryOpen;
+    var body = '';
+    if (isOpen) {
+      body = '<div class="form-row" style="margin-top:14px;">' +
+        '<div class="form-group"><label>Поиск:</label><input type="text" id="playerSearchInput" value="' + escapeHtml(playerSearchQuery) + '" placeholder="Санатуллин..." oninput="window.__playerSearch(this.value)"></div>' +
+        '<div class="form-group"><label>Фильтр по клубу:</label><select id="playerFilterClubSelect" onchange="window.__playerFilterClub(this.value)">' +
+          '<option value="">— все клубы —</option>' +
+          clubsData.map(function(c){ return '<option value="' + escapeHtml(c.name) + '"' + (playerFilterClub === c.name ? ' selected' : '') + '>' + escapeHtml(c.name) + '</option>'; }).join('') +
+        '</select></div></div>' +
+        '<div id="playersRegistryList">' + renderPlayersList() + '</div>' +
+        '<div id="peEditorWrap"></div>';
+    }
+    return '<div class="admin-extras-section">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">' +
+        '<h3 style="margin:0;">👥 Реестр игроков <span style="color:#64748b;font-weight:400;">(' + total + ')</span></h3>' +
+        '<button type="button" class="registry-toggle-btn" onclick="window.__togglePlayerRegistry()">' +
+          (isOpen ? '▲ Свернуть' : '▼ Развернуть реестр') +
+        '</button>' +
+      '</div>' +
+      (isOpen ? '' : '<p style="margin-top:8px;">Свёрнут. Нажмите «Развернуть реестр», чтобы искать, редактировать и загружать фото игроков.</p>') +
+      body + '</div>';
+  }
+  window.__togglePlayerRegistry = function () { playerRegistryOpen = !playerRegistryOpen; renderAdminExtras(); };
+  window.__playerFilterClub = function (v) { playerFilterClub = v || ''; var listEl = q('playersRegistryList'); if (listEl) listEl.innerHTML = renderPlayersList(); };
+
+  function renderPlayersList() {
+    if (!DB) return '<p style="color:#64748b">Модуль database.js не загружен</p>';
+    var all = DB.players();
+    var list = Object.keys(all).map(function (id) { return all[id]; });
+    var qq = playerSearchQuery.toLowerCase().replace(/ё/g, 'е').trim();
+    if (qq) {
+      list = list.filter(function (p) {
+        var s = (p.lastName + ' ' + p.firstName + ' ' + p.middleName).toLowerCase().replace(/ё/g, 'е');
+        if (s.indexOf(qq) !== -1) return true;
+        return (p.aliases || []).some(function (a) { return a.toLowerCase().indexOf(qq) !== -1; });
+      });
+    }
+    if (playerFilterClub) list = list.filter(function (p) { return (p.clubs || []).indexOf(playerFilterClub) !== -1; });
+    list.sort(function (a, b) { return (a.lastName || '').localeCompare(b.lastName || ''); });
+    if (!list.length) return '<p style="color:#64748b;font-style:italic;padding:20px;">Никого не найдено</p>';
+    var html = '<table class="roster-table"><thead><tr>' +
+      '<th style="width:50px;">Фото</th><th class="text-left">ФИО</th>' +
+      '<th style="width:90px;">Дата рожд.</th><th style="width:70px;">Позиция</th>' +
+      '<th style="width:60px;">Голы</th><th style="width:60px;">Игры</th><th style="width:60px;">Нагр.</th>' +
+      '<th style="width:200px;"></th></tr></thead><tbody>';
+    list.slice(0, 200).forEach(function (p) {
+      var fio = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
+      var photoHtml = p.photo
+        ? '<img src="' + p.photo + '" style="width:36px;height:44px;object-fit:cover;border-radius:4px;">'
+        : '<div style="width:36px;height:44px;border-radius:4px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:18px;opacity:0.5;">👤</div>';
+      html += '<tr>' +
+        '<td>' + photoHtml + '</td>' +
+        '<td class="text-left"><strong>' + escapeHtml(fio) + '</strong></td>' +
+        '<td>' + (p.birthDate || '—') + '</td>' +
+        '<td><span class="pos-badge pos-' + (p.position || 'УНИ').toLowerCase() + '">' + (p.position || 'УНИ') + '</span></td>' +
+        '<td>' + (p.stats.goals || 0) + '</td>' +
+        '<td>' + (p.stats.matches || 0) + '</td>' +
+        '<td>' + ((p.awards || []).length) + '</td>' +
+        '<td><button type="button" onclick="window.__editPlayer(\'' + p.id + '\')">Ред.</button> ' +
+        '<button type="button" class="award-give-btn" onclick="window.__giveAward(\'' + p.id + '\')">🏆 Награда</button></td>' +
+        '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  window.__playerSearch = function (v) { playerSearchQuery = v || ''; var listEl = q('playersRegistryList'); if (listEl) listEl.innerHTML = renderPlayersList(); };
+
+  window.__giveAward = function (playerId) {
+    var p = DB.getPlayer(playerId); if (!p) return;
+    var fio = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
+    var chosen = prompt('Введите награду для ' + fio + ':', (p.awards && p.awards[0]) || '');
+    if (!chosen || !chosen.trim()) return;
+    DB.awardPlayer(playerId, chosen.trim());
+    alert('Награда вручена!');
+    var listEl = q('playersRegistryList'); if (listEl) listEl.innerHTML = renderPlayersList();
+  };
+
+  window.__editPlayer = function (playerId) {
+    var p = DB.getPlayer(playerId); if (!p) return;
+    playerEditState.playerId = playerId;
+    var fio = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
+    var awards = (p.awards || []).map(function (a, i) {
+      return '<div style="display:flex;justify-content:space-between;align-items:center;background:#0f172a;padding:6px 10px;border-radius:6px;margin-bottom:4px;">' +
+        '<span>🏆 ' + escapeHtml(a) + '</span>' +
+        '<button type="button" class="btn-danger" style="padding:2px 8px!important;font-size:11px;" onclick="window.__removeAward(\'' + escapeAttr(playerId) + '\',' + i + ')">✕</button></div>';
+    }).join('') || '<p style="color:#64748b;font-style:italic;font-size:12px;">Наград нет</p>';
+    var html = '';
+    html += '<div class="form-row"><div class="form-group"><label>Фамилия</label><input type="text" id="peLastName" value="' + escapeHtml(p.lastName) + '"></div>' +
+      '<div class="form-group"><label>Имя</label><input type="text" id="peFirstName" value="' + escapeHtml(p.firstName || '') + '"></div>' +
+      '<div class="form-group"><label>Отчество</label><input type="text" id="peMiddleName" value="' + escapeHtml(p.middleName || '') + '"></div></div>';
+    html += '<div class="form-row"><div class="form-group"><label>Дата рождения</label><input type="text" id="peBirth" value="' + escapeHtml(p.birthDate || '') + '"></div>' +
+      '<div class="form-group"><label>Позиция</label><select id="pePos">' +
+        ['ВРТ','ЗАЩ','ПЗ','НАП','УНИ'].map(function (x) { return '<option value="' + x + '"' + (p.position === x ? ' selected' : '') + '>' + x + '</option>'; }).join('') +
+      '</select></div></div>';
+    html += '<div class="form-group"><label>Фото игрока (3:4, откроется Cropper.js)</label><div style="display:flex;gap:14px;align-items:center;">' +
+      '<div id="pePhotoPreview" style="width:90px;height:120px;border-radius:8px;overflow:hidden;background:#0f172a;border:1px solid #334155;display:flex;align-items:center;justify-content:center;">' +
+        (p.photo ? '<img src="' + p.photo + '" style="width:100%;height:100%;object-fit:cover;">' : '<span style="font-size:34px;opacity:0.4;">👤</span>') +
+      '</div><div style="flex:1;"><input type="file" id="pePhotoFile" accept="image/*"><button type="button" class="btn-danger" style="margin-top:8px;padding:5px 12px!important;font-size:11px;" onclick="window.__clearPlayerPhoto(\'' + escapeAttr(playerId) + '\')">Удалить фото</button></div></div></div>';
+    html += '<div class="form-group"><label>Алиасы (по одному в строке)</label><textarea id="peAliases" rows="3">' + escapeHtml((p.aliases || []).join('\n')) + '</textarea></div>';
+    html += '<div class="form-group"><label>Награды</label><div>' + awards + '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:8px;"><input type="text" id="peNewAward" placeholder="Лучший бомбардир">' +
+      '<button type="button" class="btn-success" style="white-space:nowrap;" onclick="window.__addAward(\'' + escapeAttr(playerId) + '\')">+ Добавить</button></div></div>';
+    html += '<div class="ai-actions" style="margin-top:20px;"><button type="button" class="btn-success" onclick="window.__savePlayer()">💾 Сохранить</button> ' +
+      '<button type="button" class="btn-secondary" onclick="window.__closePlayerEditor()">Отмена</button></div>';
+    var wrap = q('peEditorWrap'); if (!wrap) return;
+    wrap.innerHTML = '<div class="admin-extras-section" style="margin-top:16px;"><h3>✏️ Редактирование: ' + escapeHtml(fio) + '</h3>' + html + '</div>';
+    var pf = q('pePhotoFile');
+    if (pf) pf.onchange = function () {
+      var f = this.files[0]; if (!f) return;
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        openCropModal(e.target.result, 3 / 4, function (cropped) {
+          DB.updatePlayer(playerId, { photo: cropped });
+          var prev = q('pePhotoPreview'); if (prev) prev.innerHTML = '<img src="' + cropped + '" style="width:100%;height:100%;object-fit:cover;">';
+        }, { title: 'Кадрирование фото игрока (3:4)', outW: 480, outH: 640 });
+      };
+      reader.readAsDataURL(f);
+    };
+    wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
+  window.__closePlayerEditor = function () { var wrap = q('peEditorWrap'); if (wrap) wrap.innerHTML = ''; playerEditState.playerId = null; };
+  window.__savePlayer = function () {
+    var id = playerEditState.playerId; if (!id || !DB.getPlayer(id)) return;
+    var aliases = val('peAliases').split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+    DB.updatePlayer(id, {
+      lastName: val('peLastName').trim(), firstName: val('peFirstName').trim(),
+      middleName: val('peMiddleName').trim(), birthDate: val('peBirth').trim(),
+      position: val('pePos'), aliases: aliases
+    });
+    alert('Сохранено'); renderAdminExtras();
+  };
+  window.__clearPlayerPhoto = function (id) {
+    if (!confirm('Удалить фото?')) return;
+    DB.updatePlayer(id, { photo: '' });
+    var prev = q('pePhotoPreview'); if (prev) prev.innerHTML = '<span style="font-size:34px;opacity:0.4;">👤</span>';
+  };
+  window.__addAward = function (id) {
+    var v = val('peNewAward').trim(); if (!v) return;
+    DB.awardPlayer(id, v); window.__editPlayer(id);
+  };
+  window.__removeAward = function (id, idx) {
+    var p = DB.getPlayer(id); if (!p) return;
+    p.awards.splice(idx, 1); DB.save(); window.__editPlayer(id);
+  };
+
+  /* ============================================================
+     БИНДИНГИ
+     ============================================================ */
   function bindEvents() {
     var bAdd = q('bannerUrlAddBtn'); if (bAdd) bAdd.onclick = function () {
       var url = val('bannerUrlInput').trim(); if (!url) return alert('Введите URL');
@@ -1105,14 +1256,17 @@
       renderAdminExtras();
     };
     var bFile = q('bannerFileInput'); if (bFile) bFile.onchange = function () {
-      var files = Array.from(this.files || []); if (!files.length || !window.bannerManager) return;
-      var done = 0;
-      files.forEach(function (f) {
-        compressImage(f, 1600, 0.85, function (dataUrl) {
-          window.bannerManager.addSlide(dataUrl); done++;
-          if (done === files.length) { renderAdminExtras(); alert('Добавлено: ' + files.length); }
-        });
-      });
+      var f = this.files && this.files[0];
+      if (!f || !window.bannerManager) return;
+      var reader = new FileReader();
+      reader.onload = function (e) {
+        openCropModal(e.target.result, 21 / 9, function (cropped) {
+          window.bannerManager.addSlide(cropped);
+          renderAdminExtras();
+          alert('Баннер добавлен');
+        }, { title: 'Кадрирование баннера (21:9)', outW: 1920, outH: 823 });
+      };
+      reader.readAsDataURL(f);
       this.value = '';
     };
     var bInt = q('bannerIntervalSelect'); if (bInt) bInt.onchange = function () { if (window.bannerManager) window.bannerManager.setInterval(this.value); };
@@ -1145,10 +1299,11 @@
     var mrCl = q('matchResultCloseBtn'); if (mrCl) mrCl.onclick = function () { var m = q('matchResultModal'); if (m) m.style.display = 'none'; };
 
     var orgA = q('orgAddBtn'); if (orgA) orgA.onclick = addOrganizer;
-    setTimeout(renderExistingPhotos, 50);
 
-    // ⚡ Автопоиск для слотов сборной
-    symBindAutocomplete();
+    setTimeout(function () {
+      renderExistingPhotos();
+      renderSymSlotsList();
+    }, 60);
   }
 
   window.__fbDelete = function (tk, idx) {
@@ -1161,10 +1316,11 @@
   window.__fbOpenResult = openMatchResult;
   window.onAdminPanelOpened = function () { renderAdminExtras(); };
 
+  /* ============================================================
+     RENDER ADMIN
+     ============================================================ */
   function renderAdminExtras() {
     var c = q('adminExtrasContainer'); if (!c) return;
-    // ⚡ Подгружаем сохранённую сборную перед рендером
-    symLoadFromStorage(symState.tourneyKey, symState.round);
     c.innerHTML =
       renderSymbolicBlock() +
       renderClubMainPhotoBlock() +
@@ -1179,9 +1335,13 @@
     var fbT = q('fbTourney');
     if (fbT && tournamentsData[fbT.value]) updateFbTeams();
   }
+  window.renderAdminExtras = renderAdminExtras;
 
+  /* ============================================================
+     ЗАПУСК
+     ============================================================ */
   loadCustomClubs();
   applyBackground();
   if (q('view-admin') && q('view-admin').style.display === 'block') renderAdminExtras();
-  console.log('[admin-extras] v3.0 загружен — конструктор сборной вернулся к слотам');
+  console.log('[admin-extras] загружен — 8 фикс. позиций TOTW + Cropper.js кроппер');
 })();

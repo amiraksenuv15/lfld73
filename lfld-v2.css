@@ -1,5 +1,5 @@
 /* ============================================================
-   lfld-v2.css — дополнения к style.css (v3.5)
+   lfld-v2.css — дополнения к style.css (v3.6)
    Полный файл со всеми накопленными блоками:
      1. Логотипы (базовые)
      2. Строгие размеры эмблем
@@ -20,6 +20,8 @@
     17. Сворачиваемый состав команды
     18. Локация «ФОК Легенда»
     19. Спойлер состава — финальные стили
+    20. Автокомплит TOTW — дополнения
+    21. Cropper.js — стили модалки и превью
    ============================================================ */
 
 /* ============================================================
@@ -412,7 +414,6 @@ table .logo-plashka {
   touch-action: manipulation;
 }
 
-/* Пояснительная плашка под заголовком сборной */
 .symbolic-hint {
   margin: 0 0 16px;
   font-size: 11px;
@@ -915,7 +916,6 @@ body::before,
    12. КУБОК МЕТАЛЛИСТА 2026 — ОБЩИЙ КАРКАС
    ============================================================ */
 
-/* Hero-шапка кубка */
 .cup-hero {
   background: linear-gradient(135deg, rgba(245,166,35,0.12), rgba(13,21,39,0.9) 55%);
   border: 1px solid rgba(245,166,35,0.35);
@@ -962,13 +962,11 @@ body::before,
   margin: 8px 0 0;
 }
 
-/* Вкладки кубка */
 .cup-tabs {
   flex-wrap: wrap;
   margin-bottom: 24px;
 }
 
-/* Сетка групп */
 .cup-group-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1032,7 +1030,6 @@ body::before,
   font-size: 14px;
 }
 
-/* Заголовок секции */
 .cup-section-title {
   font-family: var(--font-accent);
   font-size: 13px;
@@ -1044,7 +1041,6 @@ body::before,
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
-/* Сетка расписания */
 .cup-schedule-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1086,7 +1082,6 @@ body::before,
   flex-shrink: 0;
 }
 
-/* Плей-офф */
 .cup-po-block {
   margin-bottom: 24px;
 }
@@ -1142,7 +1137,6 @@ body::before,
   color: #f1f5f9;
 }
 
-/* Плашка награждения */
 .cup-award-plate {
   background: linear-gradient(135deg, rgba(245,166,35,0.22), rgba(245,166,35,0.06));
   border: 2px solid rgba(245,166,35,0.6);
@@ -1160,7 +1154,6 @@ body::before,
   box-shadow: 0 8px 24px rgba(245,166,35,0.12);
 }
 
-/* Анонс и регламент */
 .cup-info-card {
   background: rgba(13,21,39,0.85);
   border: 1px solid rgba(255,255,255,0.08);
@@ -1195,7 +1188,6 @@ body::before,
   .cup-info-row { grid-template-columns: 1fr; gap: 4px; }
 }
 
-/* Админ-блок заявок */
 .cup-admin-roster {
   margin: 12px 0;
   padding: 12px;
@@ -1267,13 +1259,13 @@ body::before,
    ============================================================ */
 .club-hero-photo {
   width: 100% !important;
-  max-width: 64rem !important;                 /* max-w-5xl = 1024px */
+  max-width: 64rem !important;
   margin: 0 auto 1.5rem !important;
-  height: 20rem !important;                    /* h-80 = 320px */
-  border-radius: 1.5rem !important;            /* rounded-3xl */
+  height: 20rem !important;
+  border-radius: 1.5rem !important;
   overflow: hidden !important;
-  background: #0f172a !important;              /* slate-900 */
-  border: 1px solid #1e293b !important;        /* slate-800 */
+  background: #0f172a !important;
+  border: 1px solid #1e293b !important;
   box-shadow: 0 25px 50px -12px rgba(0,0,0,.55) !important;
   position: relative !important;
   display: flex !important;
@@ -1284,7 +1276,7 @@ body::before,
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
-  object-position: top !important;             /* ЗАПАС СВЕРХУ — головы не срезаются */
+  object-position: top !important;
   transition: transform .3s ease !important;
 }
 .club-hero-photo-placeholder {
@@ -1294,10 +1286,10 @@ body::before,
   background: linear-gradient(135deg, #1e293b, #0f172a);
 }
 @media (min-width: 640px) {
-  .club-hero-photo { height: 24rem !important; }      /* sm:h-96 = 384px */
+  .club-hero-photo { height: 24rem !important; }
 }
 @media (min-width: 768px) {
-  .club-hero-photo { height: 27.5rem !important; }    /* md:h-[440px] */
+  .club-hero-photo { height: 27.5rem !important; }
 }
 @media (max-width: 480px) {
   .club-hero-photo { height: 16rem !important; border-radius: 1rem !important; }
@@ -1606,7 +1598,6 @@ body.has-blur-bg #site-bg-layer { display: none !important; }
    18. ЛОКАЦИЯ «ФОК ЛЕГЕНДА»
    ============================================================ */
 
-/* Плашка локации в hero-шапке кубка */
 .cup-hero-venue {
   display: inline-flex;
   align-items: center;
@@ -1626,7 +1617,6 @@ body.has-blur-bg #site-bg-layer { display: none !important; }
   font-weight: 800;
 }
 
-/* Баннер-подсказка о локации на вкладках */
 .cup-venue-banner {
   display: flex;
   align-items: center;
@@ -1641,7 +1631,6 @@ body.has-blur-bg #site-bg-layer { display: none !important; }
 }
 .cup-venue-banner strong { color: #f5a623; }
 
-/* Плашка локации на вкладке «Анонс и регламент» */
 .cup-venue-highlight {
   display: flex;
   align-items: center;
@@ -1658,7 +1647,6 @@ body.has-blur-bg #site-bg-layer { display: none !important; }
 }
 .cup-venue-highlight strong { color: #f5a623; font-weight: 800; }
 
-/* Обновлённые чипы расписания — двухстрочные, с бейджем локации */
 .cup-match-chip {
   display: flex !important;
   flex-direction: column !important;
@@ -1695,7 +1683,6 @@ body.has-blur-bg #site-bg-layer { display: none !important; }
   text-transform: uppercase;
 }
 
-/* Метка локации в плей-офф-карточках */
 .cup-po-venue-badge {
   display: inline-block;
   margin-top: 6px;
@@ -1710,7 +1697,6 @@ body.has-blur-bg #site-bg-layer { display: none !important; }
   text-transform: uppercase;
 }
 
-/* В карточках афиши — выделяем локацию */
 .affiche-match-card .amc-venue {
   color: #f5a623 !important;
   font-weight: 700 !important;
@@ -1729,19 +1715,15 @@ body.has-blur-bg #site-bg-layer { display: none !important; }
    19. СПОЙЛЕР СОСТАВА — ФИНАЛЬНЫЕ СТИЛИ
    ============================================================ */
 
-/* Начальное состояние: extras скрыты жёстко.
-   JS при разворачивании ставит inline !important — он побеждает этот стиль. */
 #clubRosterBody tr.roster-extra-row,
 .club-roster-table tr.roster-extra-row {
   display: none !important;
 }
 
-/* Контейнер — опорная точка для closest() в JS */
 .team-roster-container {
   position: relative;
 }
 
-/* Кнопка спойлера */
 #toggle-roster-btn {
   display: none;
   width: 100%;
@@ -1793,3 +1775,106 @@ body.has-blur-bg #site-bg-layer { display: none !important; }
     margin: 12px 0 16px;
   }
 }
+
+/* ============================================================
+   20. АВТОКОМПЛИТ TOTW — дополнения
+   ============================================================ */
+.lfld-ac-item .ac-club {
+  font-size: 11px;
+  padding: 3px 9px;
+  background: rgba(245,166,35,0.12);
+  border: 1px solid rgba(245,166,35,0.32);
+  border-radius: 999px;
+  color: #f5a623;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+.lfld-ac-item .ac-club img,
+.lfld-ac-item .ac-club .logo-plashka,
+.lfld-ac-item .ac-club .logo-plashka img {
+  width: 16px !important;
+  height: 16px !important;
+  object-fit: contain !important;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   21. CROPPER.JS — стили модалки и превью
+   ============================================================ */
+
+.cropper-modal-content {
+  max-width: 880px !important;
+  width: 95% !important;
+  padding: 20px !important;
+  max-height: 92vh !important;
+  overflow-y: auto !important;
+}
+
+.cropper-stage {
+  width: 100% !important;
+  background: #0b111e !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  margin-bottom: 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 260px;
+}
+.cropper-stage img {
+  max-width: 100% !important;
+  display: block !important;
+}
+
+.cropper-preview-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 4px 0 8px;
+  display: block;
+}
+.preview-box {
+  overflow: hidden;
+  border-radius: 16px;
+  border: 2px solid #f59e0b;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+  width: 100%;
+  max-width: 32rem;
+  height: 10rem;
+  margin: 0 auto 16px;
+  background: #0b111e;
+}
+@media (max-width: 640px) {
+  .preview-box { height: 8rem; }
+}
+
+.cropper-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  margin-top: 8px;
+}
+
+.cropper-modal-content .cropper-container { border-radius: 12px; }
+.cropper-modal-content .cropper-view-box,
+.cropper-modal-content .cropper-face { border-radius: 0; }
+
+.cropper-modal-content .cropper-modal {
+  background-color: rgba(7, 12, 24, 0.72) !important;
+  opacity: 1 !important;
+}
+.cropper-modal-content .cropper-line,
+.cropper-modal-content .cropper-point {
+  background-color: #f59e0b !important;
+}
+.cropper-modal-content .cropper-view-box {
+  outline: 2px solid #f59e0b !important;
+  outline-color: #f59e0b !important;
+}
+.cropper-modal-content .cropper-dashed { border-color: rgba(245,158,11,0.5) !important; }
+.cropper-modal-content .cropper-center::before,
+.cropper-modal-content .cropper-center::after { background-color: #f59e0b !important; }
+.cropper-modal-content .cropper-point.point-se { width: 10px !important; height: 10px !important; }
