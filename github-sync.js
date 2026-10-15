@@ -1,9 +1,9 @@
 /* ============================================================
-   github-sync.js — прямая публикация данных админки в GitHub
-   v3.0 — публикует teamPhotos/playerPhotos + playerRegistry
-   Репозиторий: amiraksenuv15/lfld73
-   Ветка:       main
-   Файл:        allTournamentsMasterData.js
+   github-sync.js v3.0
+   
+   КРИТИЧНО:
+   - Перед публикацией собирает ВСЕ фото из window.LFLD_MASTER_DB
+   - Встраивает их в итоговый JSON → фото появляются на всех устройствах
    ============================================================ */
 (function () {
   'use strict';
@@ -16,23 +16,16 @@
   var API_BASE  = 'https://api.github.com';
 
   function toBase64Unicode(str) {
-    return btoa(
-      encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function (match, p1) {
-        return String.fromCharCode(parseInt(p1, 16));
-      })
-    );
+    return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function (match, p1) {
+      return String.fromCharCode(parseInt(p1, 16));
+    }));
   }
 
-  function loadToken() {
-    try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; }
-  }
-  function saveToken(t) {
-    try { localStorage.setItem(TOKEN_KEY, String(t || '')); } catch (e) {}
-  }
-  function clearToken() {
-    try { localStorage.removeItem(TOKEN_KEY); } catch (e) {}
-  }
+  function loadToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
+  function saveToken(t) { try { localStorage.setItem(TOKEN_KEY, String(t || '')); } catch (e) {} }
+  function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
 
+  /* ---------- Сбор данных ---------- */
   function collectAuxData() {
     var aux = {};
     function safeGet(key, def) {
@@ -50,46 +43,62 @@
     return aux;
   }
 
-  /* Снимок реестра игроков из БД (для кросс-устройственной сверки) */
-  function collectPlayerRegistry() {
-    var list = [];
-    try {
-      if (window.database && window.database.players) {
-        var all = window.database.players();
-        Object.keys(all).forEach(function (id) {
-          var p = all[id];
-          var fio = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
-          if (!fio) return;
-          list.push({
-            id: id,
-            fio: fio,
-            clubs: p.clubs || [],
-            position: p.position || 'УНИ',
-            birthDate: p.birthDate || '',
-            photo: p.photo || ''
-          });
-        });
-      }
-    } catch (e) {}
-    return list;
-  }
-
+  /* ⚡ КЛЮЧЕВОЕ: собираем фото из ЕДИНОГО реестра LFLD_MASTER_DB */
   function buildMasterWithMedia() {
     var master = window.LFLD_MASTER_DB || {};
+
+    /* 1. Копируем всю базу турниров */
     var copy = {};
     Object.keys(master).forEach(function (k) {
       if (k === 'teamPhotos' || k === 'playerPhotos') return;
       copy[k] = master[k];
     });
-    copy.teamPhotos   = (master.teamPhotos   && typeof master.teamPhotos   === 'object') ? master.teamPhotos   : {};
-    copy.playerPhotos = (master.playerPhotos && typeof master.playerPhotos === 'object') ? master.playerPhotos : {};
+
+    /* 2. Фото команд — из единого реестра */
+    copy.teamPhotos = Object.assign({}, master.teamPhotos || {});
+
+    /* 3. Фото игроков — из единого реестра.
+       Дополнительно подтягиваем из localStorage на случай, если что-то не синхронизировано */
+    copy.playerPhotos = Object.assign({}, master.playerPhotos || {});
+
+    /* 3a. Fallback: подтянуть фото из ff_player_photos, если не в реестре */
+    try {
+      var localPlayers = JSON.parse(localStorage.getItem('ff_player_photos') || '{}');
+      Object.keys(localPlayers).forEach(function (k) {
+        if (!localPlayers[k]) return;
+        /* Пропускаем одиночные фамилии — они опасны */
+        if (window.lfldMedia && window.lfldMedia.isSingleSurname && window.lfldMedia.isSingleSurname(k)) {
+          console.warn('[github-sync] Пропущена одиночная фамилия при публикации:', k);
+          return;
+        }
+        /* Приводим ключ к единому виду через lfldMedia */
+        var resolvedKey = k;
+        if (window.lfldMedia && window.lfldMedia.playerKey) {
+          var pk = window.lfldMedia.playerKey(k);
+          if (pk) resolvedKey = pk;
+        }
+        if (!copy.playerPhotos[resolvedKey]) copy.playerPhotos[resolvedKey] = localPlayers[k];
+      });
+    } catch (e) {}
+
+    /* 3b. Fallback: командные фото */
+    try {
+      var localTeams = JSON.parse(localStorage.getItem('ff_club_main_photo') || '{}');
+      Object.keys(localTeams).forEach(function (club) {
+        if (!localTeams[club]) return;
+        var tk = (window.lfldMedia && window.lfldMedia.teamKey)
+          ? window.lfldMedia.teamKey(club)
+          : 'team_' + club.toLowerCase().replace(/\s+/g, '_');
+        if (!copy.teamPhotos[tk]) copy.teamPhotos[tk] = localTeams[club];
+      });
+    } catch (e) {}
+
     return copy;
   }
 
   function buildFileContent() {
     var master = buildMasterWithMedia();
     var aux = collectAuxData();
-    var registry = collectPlayerRegistry();
     var ts = new Date().toISOString();
 
     var L = [];
@@ -98,21 +107,15 @@
     L.push('   Опубликовано: ' + ts);
     L.push('   ============================================================ */');
     L.push('');
-    L.push('/* ---------- Гарантия реестров фото ---------- */');
     L.push('window.LFLD_MASTER_DB = window.LFLD_MASTER_DB || {};');
     L.push('window.LFLD_MASTER_DB.teamPhotos   = window.LFLD_MASTER_DB.teamPhotos   || {};');
     L.push('window.LFLD_MASTER_DB.playerPhotos = window.LFLD_MASTER_DB.playerPhotos || {};');
     L.push('');
-    L.push('/* ---------- Мастер-база турниров + реестры фото ---------- */');
     L.push('window.LFLD_MASTER_DB = Object.assign(window.LFLD_MASTER_DB, ' + JSON.stringify(master, null, 2) + ');');
     L.push('');
-    L.push('/* ---------- Вспомогательные данные ---------- */');
     L.push('window.LFLD_AUX_DATA = ' + JSON.stringify(aux, null, 2) + ';');
     L.push('');
-    L.push('/* ---------- Снимок реестра игроков (для сверки) ---------- */');
-    L.push('window.LFLD_PLAYER_REGISTRY = ' + JSON.stringify(registry, null, 2) + ';');
-    L.push('');
-    L.push('/* ---------- Автосинхронизация вспомогательных данных в localStorage ---------- */');
+    L.push('/* ---------- Автосинхронизация в localStorage ---------- */');
     L.push('(function () {');
     L.push('  if (!window.LFLD_AUX_DATA) return;');
     L.push('  var A = window.LFLD_AUX_DATA;');
@@ -132,20 +135,10 @@
     L.push('  mergeInto("ff_player_photos",         A.playerPhotos);');
     L.push('  mergeInto("ff_tournaments",           A.tournaments);');
     L.push('  if (Array.isArray(A.customClubs) && A.customClubs.length) {');
-    L.push('    try {');
-    L.push('      var cc = JSON.parse(localStorage.getItem("ff_custom_clubs") || "[]");');
-    L.push('      A.customClubs.forEach(function (c) {');
-    L.push('        if (!c || !c.name) return;');
-    L.push('        if (!cc.find(function (x) { return x.name === c.name; })) cc.push(c);');
-    L.push('      });');
-    L.push('      localStorage.setItem("ff_custom_clubs", JSON.stringify(cc));');
-    L.push('    } catch (e) {}');
+    L.push('    try { var cc = JSON.parse(localStorage.getItem("ff_custom_clubs") || "[]"); A.customClubs.forEach(function (c) { if (!c || !c.name) return; if (!cc.find(function (x) { return x.name === c.name; })) cc.push(c); }); localStorage.setItem("ff_custom_clubs", JSON.stringify(cc)); } catch (e) {}');
     L.push('  }');
     L.push('  if (Array.isArray(A.bannerSlides) && A.bannerSlides.length) {');
     L.push('    try { localStorage.setItem("bannerSlides", JSON.stringify(A.bannerSlides)); } catch (e) {}');
-    L.push('  }');
-    L.push('  if (Array.isArray(A.organizers) && A.organizers.length) {');
-    L.push('    try { localStorage.setItem("ff_organizers", JSON.stringify(A.organizers)); } catch (e) {}');
     L.push('  }');
     L.push('})();');
     L.push('');
@@ -153,6 +146,7 @@
     return L.join('\n');
   }
 
+  /* ---------- GitHub API ---------- */
   function ghHeaders(token) {
     return {
       'Authorization': 'token ' + token,
@@ -168,40 +162,31 @@
     return fetch(url, { headers: ghHeaders(token) })
       .then(function (res) {
         if (res.status === 404) return null;
-        if (!res.ok) {
-          return res.json().then(function (j) {
-            throw new Error('GET ' + res.status + ': ' + (j.message || 'unknown'));
-          });
-        }
+        if (!res.ok) return res.json().then(function (j) { throw new Error('GET ' + res.status + ': ' + (j.message || 'unknown')); });
         return res.json();
       })
       .then(function (data) { return data && data.sha ? data.sha : null; });
   }
 
   function putFile(token, content, sha, message) {
-    var url = API_BASE + '/repos/' + GH_OWNER + '/' + GH_REPO
-      + '/contents/' + encodeURIComponent(GH_FILE);
+    var url = API_BASE + '/repos/' + GH_OWNER + '/' + GH_REPO + '/contents/' + encodeURIComponent(GH_FILE);
     var body = {
       message: message || ('Auto-sync ' + new Date().toISOString()),
       content: toBase64Unicode(content),
       branch: GH_BRANCH
     };
     if (sha) body.sha = sha;
-
     return fetch(url, {
       method: 'PUT',
       headers: ghHeaders(token),
       body: JSON.stringify(body)
     }).then(function (res) {
-      if (!res.ok) {
-        return res.json().then(function (j) {
-          throw new Error('PUT ' + res.status + ': ' + (j.message || 'unknown'));
-        });
-      }
+      if (!res.ok) return res.json().then(function (j) { throw new Error('PUT ' + res.status + ': ' + (j.message || 'unknown')); });
       return res.json();
     });
   }
 
+  /* ---------- UI ---------- */
   function ensureWrap() {
     var w = document.getElementById('ghSyncWrap');
     if (w) return w;
@@ -229,96 +214,67 @@
     if (!b) return;
     b.disabled = !!busy;
     b.classList.toggle('busy', !!busy);
-    b.innerHTML = busy
-      ? '⏳ Отправка на GitHub...'
-      : '🚀 Сохранить все изменения и опубликовать на сайт';
+    b.innerHTML = busy ? '⏳ Отправка на GitHub...' : '🚀 Сохранить все изменения и опубликовать на сайт';
   }
 
   function renderBlock() {
-    var w = ensureWrap();
-    if (!w) return;
+    var w = ensureWrap(); if (!w) return;
     var savedToken = loadToken();
-
     w.innerHTML =
       '<div class="admin-extras-section gh-sync-section">' +
         '<h3>🔗 Синхронизация с GitHub</h3>' +
-        '<p>Публикация всех изменений (мастер-база, заявки, символическая сборная, <strong>фото команд и игроков, реестр игроков</strong>) напрямую в репозиторий ' +
-          '<strong>' + GH_OWNER + '/' + GH_REPO + '</strong> — ветка <code>' + GH_BRANCH + '</code>, файл <code>' + GH_FILE + '</code>.</p>' +
-
+        '<p>Публикация всех изменений (мастер-база, заявки, сборная, <strong>фото команд и игроков</strong>) в репозиторий ' +
+          '<strong>' + GH_OWNER + '/' + GH_REPO + '</strong> — ветка <code>' + GH_BRANCH + '</code>.</p>' +
         '<div class="form-row">' +
           '<div class="form-group" style="flex:1;">' +
             '<label>Персональный токен GitHub (PAT)</label>' +
-            '<input type="password" id="gh-token-input" ' +
-              'placeholder="Вставьте токен ghp_..." ' +
-              'value="' + (savedToken ? savedToken.replace(/"/g, '&quot;') : '') + '" ' +
-              'autocomplete="off" spellcheck="false">' +
-            '<small style="color:#94a3b8;font-size:11px;display:block;margin-top:6px;">' +
-              'Нужен scope <code>repo</code>. Токен хранится только в вашем браузере (localStorage).' +
-            '</small>' +
+            '<input type="password" id="gh-token-input" placeholder="ghp_..." value="' + (savedToken ? savedToken.replace(/"/g, '&quot;') : '') + '" autocomplete="off" spellcheck="false">' +
+            '<small style="color:#94a3b8;font-size:11px;display:block;margin-top:6px;">Нужен scope <code>repo</code>. Токен хранится только в браузере.</small>' +
           '</div>' +
           '<div class="form-group" style="display:flex;align-items:flex-end;gap:8px;">' +
             '<button type="button" class="btn-secondary" id="gh-save-token-btn">💾 Сохранить ключ</button>' +
-            '<button type="button" class="btn-danger" id="gh-clear-token-btn" title="Удалить сохранённый токен">🗑 Удалить</button>' +
+            '<button type="button" class="btn-danger" id="gh-clear-token-btn">🗑 Удалить</button>' +
           '</div>' +
         '</div>' +
-
-        '<button id="publish-to-github-btn" type="button" class="gh-publish-btn">' +
-          '🚀 Сохранить все изменения и опубликовать на сайт' +
-        '</button>' +
-
+        '<button id="publish-to-github-btn" type="button" class="gh-publish-btn">🚀 Сохранить все изменения и опубликовать на сайт</button>' +
         '<div id="gh-sync-status" class="gh-sync-status hidden"></div>' +
-
         '<div class="gh-sync-help">' +
           '<div>Что публикуется:</div>' +
           '<ul>' +
-            '<li><code>window.LFLD_MASTER_DB</code> — мастер-база турниров</li>' +
+            '<li><code>window.LFLD_MASTER_DB</code> — мастер-база</li>' +
             '<li><code>teamPhotos</code> — фото команд</li>' +
-            '<li><code>playerPhotos</code> — фото игроков</li>' +
-            '<li><code>LFLD_PLAYER_REGISTRY</code> — снимок реестра игроков</li>' +
+            '<li><code>playerPhotos</code> — фото игроков (строго по ID / полному ФИ)</li>' +
             '<li><code>ff_cup_metallist_rosters</code>, <code>ff_symbolic_teams</code></li>' +
             '<li><code>ff_club_main_photo</code>, <code>ff_player_photos</code></li>' +
             '<li><code>ff_tournaments</code>, <code>ff_custom_clubs</code>, <code>bannerSlides</code>, <code>ff_organizers</code></li>' +
           '</ul>' +
         '</div>' +
       '</div>';
-
     bind();
   }
 
   function bind() {
     var tokenInp = document.getElementById('gh-token-input');
-    var saveBtn  = document.getElementById('gh-save-token-btn');
+    var saveBtn = document.getElementById('gh-save-token-btn');
     var clearBtn = document.getElementById('gh-clear-token-btn');
-    var pubBtn   = document.getElementById('publish-to-github-btn');
-
+    var pubBtn = document.getElementById('publish-to-github-btn');
     if (saveBtn) saveBtn.onclick = function () {
       var t = (tokenInp && tokenInp.value || '').trim();
       if (!t) { setStatus('⚠ Введите токен', 'err'); return; }
-      saveToken(t);
-      setStatus('✅ Ключ сохранён в браузере', 'ok');
-      setTimeout(hideStatus, 3500);
+      saveToken(t); setStatus('✅ Ключ сохранён', 'ok'); setTimeout(hideStatus, 3500);
     };
-
     if (clearBtn) clearBtn.onclick = function () {
-      if (!confirm('Удалить сохранённый токен из браузера?')) return;
-      clearToken();
-      if (tokenInp) tokenInp.value = '';
-      setStatus('🗑 Токен удалён', 'info');
-      setTimeout(hideStatus, 2500);
+      if (!confirm('Удалить токен?')) return;
+      clearToken(); if (tokenInp) tokenInp.value = '';
+      setStatus('🗑 Токен удалён', 'info'); setTimeout(hideStatus, 2500);
     };
-
     if (pubBtn) pubBtn.onclick = publishToGithub;
   }
 
   function publishToGithub() {
     var tokenInp = document.getElementById('gh-token-input');
     var token = (tokenInp && tokenInp.value || '').trim() || loadToken();
-
-    if (!token) {
-      setStatus('⚠ Пожалуйста, укажите GitHub токен доступа', 'err');
-      if (tokenInp) tokenInp.focus();
-      return;
-    }
+    if (!token) { setStatus('⚠ Укажите GitHub токен', 'err'); if (tokenInp) tokenInp.focus(); return; }
     saveToken(token);
 
     setButtonBusy(true);
@@ -351,32 +307,24 @@
       })
       .then(function (res) {
         setButtonBusy(false);
-        var commitShort = (res && res.commit && res.commit.sha)
-          ? res.commit.sha.slice(0, 7)
-          : '';
+        var commitShort = (res && res.commit && res.commit.sha) ? res.commit.sha.slice(0, 7) : '';
         setStatus(
-          '✅ Успешно опубликовано на GitHub' +
-          (commitShort ? ' (commit ' + commitShort + ')' : '') +
-          (photoCount ? ' · медиа: ' + photoCount : '') +
-          '. Сайт обновится после пересборки/CDN (~1–2 мин).',
+          '✅ Опубликовано на GitHub' + (commitShort ? ' (commit ' + commitShort + ')' : '') +
+          (photoCount ? ' · фото: ' + photoCount : '') +
+          '. Сайт обновится через ~1–2 мин. Перезагрузите страницу на мобильном.',
           'ok'
         );
-        setTimeout(hideStatus, 8000);
+        setTimeout(hideStatus, 10000);
       })
       .catch(function (err) {
         console.error('[github-sync]', err);
         setButtonBusy(false);
         var msg = String(err && err.message || err);
-        if (msg.indexOf('401') !== -1 || msg.indexOf('Bad credentials') !== -1)
-          msg = '❌ Неверный токен или истёк срок действия. Проверьте PAT.';
-        else if (msg.indexOf('403') !== -1)
-          msg = '❌ Доступ запрещён. Проверьте scope токена (нужен «repo»).';
-        else if (msg.indexOf('404') !== -1)
-          msg = '❌ Репозиторий или ветка не найдены. Проверьте настройки.';
-        else if (msg.indexOf('409') !== -1)
-          msg = '⚠ Конфликт SHA. Обновите страницу и повторите.';
-        else
-          msg = '❌ Ошибка: ' + msg;
+        if (msg.indexOf('401') !== -1 || msg.indexOf('Bad credentials') !== -1) msg = '❌ Неверный токен';
+        else if (msg.indexOf('403') !== -1) msg = '❌ Доступ запрещён (нужен scope «repo»)';
+        else if (msg.indexOf('404') !== -1) msg = '❌ Репозиторий/ветка не найдены';
+        else if (msg.indexOf('409') !== -1) msg = '⚠ Конфликт SHA. Обновите страницу.';
+        else msg = '❌ Ошибка: ' + msg;
         setStatus(msg, 'err');
       });
   }
@@ -391,11 +339,10 @@
 
   function boot() {
     patchAdmin();
-    if (document.getElementById('view-admin') &&
-        document.getElementById('view-admin').style.display === 'block') {
+    if (document.getElementById('view-admin') && document.getElementById('view-admin').style.display === 'block') {
       setTimeout(renderBlock, 100);
     }
-    console.log('[github-sync] v3.0 загружен → ' + GH_OWNER + '/' + GH_REPO + ' (с медиа-реестрами и реестром игроков)');
+    console.log('[github-sync] v3.0 загружен · фото встраиваются в JSON');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

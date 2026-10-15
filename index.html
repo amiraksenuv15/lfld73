@@ -12,7 +12,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Russo+One&family=Ubuntu:wght@400;500;700&display=swap">
 
-  <!-- ⚡ Cropper.js — стабильная библиотека для кадрирования -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 
@@ -78,7 +77,6 @@
     }
     .matches-grid .lfld-card-col { line-height: 1.4; }
 
-    /* ⚡ СПОЙЛЕР СОСТАВА — начальное состояние */
     #clubRosterBody tr.roster-extra-row { display: none !important; }
     #toggle-roster-btn {
       display: none;
@@ -113,6 +111,37 @@
       box-shadow: 0 6px 18px rgba(245, 158, 11, 0.18);
     }
     #toggle-roster-btn:active { transform: translateY(0); }
+
+    /* ⚡ Кликабельные плашки клубов в досье */
+    .pc-club-tag-clickable {
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .pc-club-tag-clickable:hover {
+      background: rgba(59, 130, 246, 0.35) !important;
+      border-color: #3b82f6 !important;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+    }
+    .pc-club-link:hover {
+      color: #60a5fa !important;
+      text-decoration: underline !important;
+    }
+    .club-link,
+    .lfld-card-team-logo,
+    .lfld-card-team-name,
+    .hm-team,
+    .amc-team,
+    .award-pill,
+    .assist-table-row-club {
+      cursor: pointer;
+    }
+    .club-link:hover,
+    .hm-team:hover .hm-team-name,
+    .amc-team:hover .amc-team-name {
+      opacity: 0.85;
+      transition: opacity 0.15s;
+    }
   </style>
 
   <!-- ⚡ Защита от QuotaExceededError — ДОЛЖЕН идти первым -->
@@ -127,6 +156,27 @@
   <link rel="stylesheet" href="bracket.css?v=3.0">
   <link rel="stylesheet" href="welcome.css?v=3.0">
   <link rel="stylesheet" href="lfld-v2.css?v=3.0">
+
+  <!-- ⚡ АНТИКЭШ ДЛЯ МОБИЛЬНЫХ: база данных загружается с уникальным timestamp -->
+  <script>
+    (function () {
+      var ts = new Date().getTime();
+      var s = document.createElement('script');
+      s.src = 'allTournamentsMasterData.js?v=' + ts;
+      s.async = false;
+      s.onload = function () {
+        window.__LFLD_DB_LOADED__ = true;
+        console.log('[anti-cache] allTournamentsMasterData.js загружен с ?v=' + ts);
+        if (typeof window.__LFLD_AFTER_DB_LOAD__ === 'function') {
+          try { window.__LFLD_AFTER_DB_LOAD__(); } catch (e) { console.warn(e); }
+        }
+      };
+      s.onerror = function () {
+        console.warn('[anti-cache] Не удалось загрузить базу данных');
+      };
+      document.head.appendChild(s);
+    })();
+  </script>
 </head>
 <body>
   <div id="site-bg-layer" style="background-image: url('bg-pattern.jpg');"></div>
@@ -250,16 +300,8 @@
           <div id="tableRoundContent"></div>
           <table id="fullTable">
             <thead><tr>
-              <th>#</th>
-              <th class="text-left">Клуб</th>
-              <th>И</th>
-              <th>В</th>
-              <th>Н</th>
-              <th>П</th>
-              <th>Мячи</th>
-              <th>РМ</th>
-              <th>О</th>
-              <th>Выбор</th>
+              <th>#</th><th class="text-left">Клуб</th><th>И</th><th>В</th><th>Н</th><th>П</th>
+              <th>Мячи</th><th>РМ</th><th>О</th><th>Выбор</th>
             </tr></thead>
             <tbody id="tableBody"></tbody>
           </table>
@@ -271,8 +313,7 @@
         <div id="tab-scorers" style="display:none;">
           <table>
             <thead><tr>
-              <th>#</th><th class="text-left">Игрок</th><th class="text-left">Команда</th>
-              <th>Голы</th>
+              <th>#</th><th class="text-left">Игрок</th><th class="text-left">Команда</th><th>Голы</th>
             </tr></thead>
             <tbody id="scorersBody"></tbody>
           </table>
@@ -281,11 +322,7 @@
         <div id="tab-assists" style="display:none;">
           <table>
             <thead><tr>
-              <th>#</th>
-              <th class="text-left">Игрок</th>
-              <th class="text-left">Команда</th>
-              <th>И</th>
-              <th>👟 Пас / А</th>
+              <th>#</th><th class="text-left">Игрок</th><th class="text-left">Команда</th><th>И</th><th>👟 Пас / А</th>
             </tr></thead>
             <tbody id="assistsBody"></tbody>
           </table>
@@ -295,8 +332,7 @@
           <table>
             <thead><tr>
               <th>#</th><th class="text-left">Игрок</th><th class="text-left">Команда</th>
-              <th class="yellow-head">ЖК</th>
-              <th class="red-head">КК</th>
+              <th class="yellow-head">ЖК</th><th class="red-head">КК</th>
             </tr></thead>
             <tbody id="disciplineBody"></tbody>
           </table>
@@ -361,18 +397,11 @@
           <h3 style="color:#f1f5f9;">Состав команды</h3>
           <table class="club-roster-table">
             <thead><tr>
-              <th class="text-left">Игрок</th>
-              <th>Позиция</th>
-              <th>И</th>
-              <th>Голы</th>
-              <th>Ассисты</th>
-              <th>Досье</th>
+              <th class="text-left">Игрок</th><th>Позиция</th><th>И</th><th>Голы</th><th>Ассисты</th><th>Досье</th>
             </tr></thead>
             <tbody id="clubRosterBody"></tbody>
           </table>
-          <button id="toggle-roster-btn" type="button"
-                  data-expanded="false"
-                  aria-expanded="false"
+          <button id="toggle-roster-btn" type="button" data-expanded="false" aria-expanded="false"
                   onclick="if(window.toggleRosterSquad){window.toggleRosterSquad(this);}return false;">
             <span>Развернуть полную заявку</span> ↓
           </button>
@@ -412,9 +441,7 @@
       <p id="modalPlayerClubs">Команды: ...</p>
       <h4>Статистика по клубам и турнирам:</h4>
       <table>
-        <thead><tr>
-          <th>Турнир</th><th>Клуб</th><th>Голы</th><th>Пасы</th>
-        </tr></thead>
+        <thead><tr><th>Турнир</th><th>Клуб</th><th>Голы</th><th>Пасы</th></tr></thead>
         <tbody id="modalCareerBody"></tbody>
       </table>
       <h4>Матчи с участием игрока:</h4>
@@ -522,14 +549,8 @@
       <button class="modal-close" id="adminLoginCloseBtn">✕</button>
       <h2>Панель управления ЛФЛД</h2>
       <p style="color:#64748b;font-size:13px;margin-bottom:20px;">Доступ только для уполномоченных лиц</p>
-      <div class="form-group">
-        <label>Логин</label>
-        <input type="text" id="adminLoginInput" placeholder="admin" autofocus>
-      </div>
-      <div class="form-group">
-        <label>Пароль</label>
-        <input type="password" id="adminPassInput" placeholder="••••••••">
-      </div>
+      <div class="form-group"><label>Логин</label><input type="text" id="adminLoginInput" placeholder="admin" autofocus></div>
+      <div class="form-group"><label>Пароль</label><input type="password" id="adminPassInput" placeholder="••••••••"></div>
       <div class="login-error" id="adminLoginError"></div>
       <div class="ai-actions" style="margin-top:20px;">
         <button id="adminLoginSubmitBtn" class="btn-success" type="button">Войти в систему</button>
@@ -538,7 +559,6 @@
     </div>
   </div>
 
-  <!-- ⚡ Модальное окно Cropper.js -->
   <div class="modal-overlay" id="photo-cropper-modal">
     <div class="modal-content cropper-modal-content">
       <button class="modal-close" id="cropper-modal-close" type="button">✕</button>
@@ -549,7 +569,7 @@
       <div class="cropper-stage">
         <img id="cropper-image" src="" alt="">
       </div>
-      <div class="cropper-preview-label">Живой предпросмотр (как будет на сайте):</div>
+      <div class="cropper-preview-label">Живой предпросмотр:</div>
       <div class="preview-box"></div>
       <div class="cropper-actions">
         <button type="button" class="btn-success" id="save-cropped-photo-btn">Сохранить и применить кадрирование</button>
@@ -643,19 +663,13 @@
       return t;
     }
 
-    /* ⚡ ПРИОРИТЕТ: данные из allTournamentsMasterData.js (LFLD_MASTER_DB)
-       — источник правды. localStorage — только черновик админки. */
     var tournamentsData = (function() {
       var data = {};
       var saved = null;
       try { saved = JSON.parse(localStorage.getItem('ff_tournaments') || 'null'); } catch(e) {}
-
-      /* 1) СНАЧАЛА — из файла базы */
       Object.keys(DEFAULT_TOURNAMENTS).forEach(function(k) {
         data[k] = normalizeTournament(JSON.parse(JSON.stringify(DEFAULT_TOURNAMENTS[k])));
       });
-
-      /* 2) ПОТОМ — черновик из localStorage */
       if (saved && typeof saved === 'object') {
         Object.keys(saved).forEach(function(k) {
           if (!data[k]) { data[k] = normalizeTournament(saved[k]); return; }
@@ -675,8 +689,7 @@
 
     (function unifyClubs() {
       Object.keys(tournamentsData).forEach(function (tk) {
-        var t = tournamentsData[tk];
-        if (!t) return;
+        var t = tournamentsData[tk]; if (!t) return;
         if (Array.isArray(t.teams)) {
           t.teams = t.teams.map(function (c) { return canonicalClub(c); });
           t.teams = t.teams.filter(function (c, i) { return t.teams.indexOf(c) === i; });
@@ -785,12 +798,8 @@
     function escapeAttr(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
     function makeMatchId(tk, m) { return (tk || '') + '_' + (m.tour || m.round || '') + '_' + (m.t1 || '') + '_' + (m.t2 || ''); }
 
-    /* ============================================================
-       ⚡ СПОЙЛЕР СОСТАВА — железобетонная версия
-       ============================================================ */
     var ROSTER_LIMIT = 6;
     var ROSTER_ROW_EXTRA_CLASS = 'roster-extra-row';
-
     function rosterRowAttrs(idx) {
       if (idx >= ROSTER_LIMIT) return { cls: ' ' + ROSTER_ROW_EXTRA_CLASS, style: '' };
       return { cls: '', style: '' };
@@ -803,55 +812,31 @@
       if (!tbody) return false;
       var extraRows = tbody.querySelectorAll('tr.' + ROSTER_ROW_EXTRA_CLASS);
       if (!extraRows || extraRows.length === 0) return false;
-
       var isExpanded = btn.getAttribute('data-expanded') === 'true';
       var newExpanded = !isExpanded;
       btn.setAttribute('data-expanded', newExpanded ? 'true' : 'false');
       btn.setAttribute('aria-expanded', newExpanded ? 'true' : 'false');
-
       Array.prototype.forEach.call(extraRows, function (row) {
-        if (newExpanded) {
-          row.classList.remove('hidden');
-          row.style.setProperty('display', 'table-row', 'important');
-        } else {
-          row.classList.add('hidden');
-          row.style.setProperty('display', 'none', 'important');
-        }
+        if (newExpanded) { row.classList.remove('hidden'); row.style.setProperty('display', 'table-row', 'important'); }
+        else { row.classList.add('hidden'); row.style.setProperty('display', 'none', 'important'); }
       });
-
       var total = extraRows.length;
-      if (newExpanded) {
-        btn.innerHTML = '<span>Свернуть состав</span> ↑';
-      } else {
-        btn.innerHTML = '<span>Развернуть полную заявку (показать ещё ' + total + ' игроков)</span> ↓';
-      }
+      btn.innerHTML = newExpanded
+        ? '<span>Свернуть состав</span> ↑'
+        : '<span>Развернуть полную заявку (показать ещё ' + total + ' игроков)</span> ↓';
       return false;
     };
 
     function setupRosterToggle() {
-      var btn = document.getElementById('toggle-roster-btn');
-      if (!btn) return false;
-      var tbody = document.getElementById('clubRosterBody');
-      if (!tbody) return false;
+      var btn = document.getElementById('toggle-roster-btn'); if (!btn) return false;
+      var tbody = document.getElementById('clubRosterBody'); if (!tbody) return false;
       var extraRows = tbody.querySelectorAll('tr.' + ROSTER_ROW_EXTRA_CLASS);
       var total = extraRows.length;
-
       btn.setAttribute('data-expanded', 'false');
       btn.setAttribute('aria-expanded', 'false');
-
-      if (total === 0) {
-        btn.classList.remove('visible');
-        btn.style.display = 'none';
-        btn.innerHTML = '<span>Развернуть полную заявку</span> ↓';
-        return false;
-      }
-
-      Array.prototype.forEach.call(extraRows, function (row) {
-        row.style.setProperty('display', 'none', 'important');
-      });
-
-      btn.classList.add('visible');
-      btn.style.display = 'flex';
+      if (total === 0) { btn.classList.remove('visible'); btn.style.display = 'none'; btn.innerHTML = '<span>Развернуть полную заявку</span> ↓'; return false; }
+      Array.prototype.forEach.call(extraRows, function (row) { row.style.setProperty('display', 'none', 'important'); });
+      btn.classList.add('visible'); btn.style.display = 'flex';
       btn.innerHTML = '<span>Развернуть полную заявку (показать ещё ' + total + ' игроков)</span> ↓';
       return true;
     }
@@ -860,14 +845,12 @@
     document.addEventListener('click', function (e) {
       var btn = e.target && e.target.closest ? e.target.closest('#toggle-roster-btn') : null;
       if (!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
+      e.preventDefault(); e.stopPropagation();
       window.toggleRosterSquad(btn);
     }, true);
 
     function calculateStandings(tKey) {
-      var t = tournamentsData[tKey];
-      if (!t) return { stats: [], players: [] };
+      var t = tournamentsData[tKey]; if (!t) return { stats: [], players: [] };
       t = normalizeTournament(t);
       var stats = t.teams.map(function(name) { return { name: name, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }; });
       var playerList = [];
@@ -892,11 +875,7 @@
             var cnt = 1; var mm = token.match(/\((\d+)\)/);
             if (mm) { cnt = parseInt(mm[1]) || 1; token = token.replace(/\((\d+)\)/, '').trim(); }
             var assistName = '';
-            if (token.indexOf('/') !== -1) {
-              var pp = token.split('/');
-              token = pp[0].trim();
-              assistName = (pp[1] || '').trim();
-            }
+            if (token.indexOf('/') !== -1) { var pp = token.split('/'); token = pp[0].trim(); assistName = (pp[1] || '').trim(); }
             var name = cleanName(token); if (!name) return;
             var p = getPlayer(name, club);
             p.goals += cnt;
@@ -1052,7 +1031,6 @@
         var t = tournamentsData[currentTourneyKey]; if (!t) return;
         var data = calculateStandings(currentTourneyKey);
         var html = ""; var total = data.stats.length;
-
         data.stats.forEach(function(team, idx) {
           var isFav = team.name === favoriteClub;
           var rank = idx + 1; var rc = '';
@@ -1067,22 +1045,16 @@
           html += '<tr class="' + trC + '">';
           html += '<td>' + rank + '</td>';
           html += '<td class="text-left">' +
-            '<span class="club-link" onclick="openClubCabinet(\'' + escapeAttr(team.name) + '\')">' +
+            '<span class="club-link" onclick="window.navigateToTeam && window.navigateToTeam(\'' + escapeAttr(team.name) + '\')">' +
               getClubLogoHtml(team.name) +
               '<strong class="club-name">' + team.name + '</strong>' +
             '</span>' + (isFav ? ' ★' : '') +
           '</td>';
-          html += '<td>' + team.p + '</td>';
-          html += '<td>' + team.w + '</td>';
-          html += '<td>' + team.d + '</td>';
-          html += '<td>' + team.l + '</td>';
-          html += '<td>' + team.gf + ' - ' + team.ga + '</td>';
-          html += '<td>' + rmStr + '</td>';
-          html += '<td><strong>' + team.pts + '</strong></td>';
+          html += '<td>' + team.p + '</td><td>' + team.w + '</td><td>' + team.d + '</td><td>' + team.l + '</td>';
+          html += '<td>' + team.gf + ' - ' + team.ga + '</td><td>' + rmStr + '</td><td><strong>' + team.pts + '</strong></td>';
           html += '<td><button onclick="setFavoriteClub(\'' + escapeAttr(team.name) + '\')">' + (isFav ? 'Выбран' : 'Выбрать') + '</button></td>';
           html += '</tr>';
         });
-
         var tb = document.getElementById('tableBody');
         if (tb) tb.innerHTML = html || '<tr><td colspan="10" style="text-align:center;">Нет команд</td></tr>';
         renderRoundTabs();
@@ -1095,7 +1067,7 @@
           sHtml += '<tr class="pointer" onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(club) + '\')">';
           sHtml += '<td>' + (idx + 1) + '</td>';
           sHtml += '<td class="text-left"><span class="assist-table-row-club">' + getClubLogoMini(club) + '<strong>' + p.name + '</strong></span></td>';
-          sHtml += '<td class="text-left"><span class="club-link" onclick="event.stopPropagation(); openClubCabinet(\'' + escapeAttr(club) + '\')">' + club + '</span></td>';
+          sHtml += '<td class="text-left"><span class="club-link" onclick="event.stopPropagation(); window.navigateToTeam && window.navigateToTeam(\'' + escapeAttr(club) + '\')">' + club + '</span></td>';
           sHtml += '<td class="goals-cell">' + p.goals + '</td>';
           sHtml += '</tr>';
         });
@@ -1232,9 +1204,9 @@
       html += '<div class="lfld-match-card' + (cardClick ? ' pointer' : '') + (expanded ? ' expanded' : '') + '"' + (cardClick ? ' onclick="' + cardClick + '"' : '') + '>';
       html += '<div class="lfld-match-card-top"><div class="lfld-match-card-title">РЕЗУЛЬТАТ МАТЧА</div><div class="lfld-match-card-stage">' + (stage || '—') + (date ? ' | ' + date : '') + '</div></div>';
       html += '<div class="lfld-match-card-pill">';
-      html += '<div class="lfld-card-team' + (w1 ? ' winner' : '') + '"><div class="lfld-card-team-logo">' + getClubLogoForCard(t1) + '</div><div class="lfld-card-team-name" onclick="event.stopPropagation(); openClubCabinet(\'' + escapeAttr(t1) + '\')">' + (t1 || '—') + '</div></div>';
+      html += '<div class="lfld-card-team' + (w1 ? ' winner' : '') + '"><div class="lfld-card-team-logo">' + getClubLogoForCard(t1) + '</div><div class="lfld-card-team-name" onclick="event.stopPropagation(); window.navigateToTeam && window.navigateToTeam(\'' + escapeAttr(t1) + '\')">' + (t1 || '—') + '</div></div>';
       html += scoreHtml;
-      html += '<div class="lfld-card-team' + (w2 ? ' winner' : '') + '"><div class="lfld-card-team-logo">' + getClubLogoForCard(t2) + '</div><div class="lfld-card-team-name" onclick="event.stopPropagation(); openClubCabinet(\'' + escapeAttr(t2) + '\')">' + (t2 || '—') + '</div></div>';
+      html += '<div class="lfld-card-team' + (w2 ? ' winner' : '') + '"><div class="lfld-card-team-logo">' + getClubLogoForCard(t2) + '</div><div class="lfld-card-team-name" onclick="event.stopPropagation(); window.navigateToTeam && window.navigateToTeam(\'' + escapeAttr(t2) + '\')">' + (t2 || '—') + '</div></div>';
       html += '</div>';
       if (played && hasScorers) {
         var gs = (expandable && !expanded) ? ' style="display:none;"' : '';
@@ -1344,7 +1316,7 @@
         html += '<div class="poster-status poster-status-' + status + '">' + label + '</div>';
         if (m.date) html += '<div class="poster-date">' + m.date + (m.stadium ? ' • ' + m.stadium : '') + '</div>';
         html += '</div>';
-        html += '<div class="poster-pill"><div class="poster-team">' + getClubLogoHtml(t1C, true) + '<div class="poster-team-name">' + t1C + '</div></div><div class="poster-score">' + (played ? (m.s1 + ' : ' + m.s2) : 'VS') + '</div><div class="poster-team">' + getClubLogoHtml(t2C, true) + '<div class="poster-team-name">' + t2C + '</div></div></div>';
+        html += '<div class="poster-pill"><div class="poster-team" onclick="window.navigateToTeam && window.navigateToTeam(\'' + escapeAttr(t1C) + '\')">' + getClubLogoHtml(t1C, true) + '<div class="poster-team-name">' + t1C + '</div></div><div class="poster-score">' + (played ? (m.s1 + ' : ' + m.s2) : 'VS') + '</div><div class="poster-team" onclick="window.navigateToTeam && window.navigateToTeam(\'' + escapeAttr(t2C) + '\')">' + getClubLogoHtml(t2C, true) + '<div class="poster-team-name">' + t2C + '</div></div></div>';
         var hasAny = t1S.goals.length || t1S.yellow.length || t1S.red.length || t2S.goals.length || t2S.yellow.length || t2S.red.length;
         if (hasAny) {
           html += '<div class="poster-stats">';
@@ -1399,7 +1371,7 @@
     function renderSeedCard(elId, seed) {
       var el = document.getElementById(elId); if (!el) return;
       if (!seed) { el.innerHTML = '<div class="lfld-match-card"><div class="lfld-match-card-top"><div class="lfld-match-card-title">АВТО-ПРОХОД</div><div class="lfld-match-card-stage">—</div></div><div class="lfld-match-card-pill"><div class="lfld-card-team"><div class="lfld-card-team-name">—</div></div><div class="lfld-card-score">—</div><div class="lfld-card-team"><div class="lfld-card-team-name">—</div></div></div></div>'; return; }
-      var html = '<div class="lfld-match-card"><div class="lfld-match-card-top"><div class="lfld-match-card-title">АВТО-ПРОХОД</div><div class="lfld-match-card-stage">' + seed.place + '</div></div><div class="lfld-match-card-pill"><div class="lfld-card-team" style="grid-column:1/3;"><div class="lfld-card-team-logo">' + getClubLogoForCard(seed.name) + '</div><div class="lfld-card-team-name" onclick="openClubCabinet(\'' + escapeAttr(seed.name) + '\')">' + seed.name + '</div></div><div class="lfld-card-score">→</div></div></div>';
+      var html = '<div class="lfld-match-card"><div class="lfld-match-card-top"><div class="lfld-match-card-title">АВТО-ПРОХОД</div><div class="lfld-match-card-stage">' + seed.place + '</div></div><div class="lfld-match-card-pill"><div class="lfld-card-team" style="grid-column:1/3;"><div class="lfld-card-team-logo">' + getClubLogoForCard(seed.name) + '</div><div class="lfld-card-team-name" onclick="window.navigateToTeam && window.navigateToTeam(\'' + escapeAttr(seed.name) + '\')">' + seed.name + '</div></div><div class="lfld-card-score">→</div></div></div>';
       el.innerHTML = html;
     }
     function renderPlayoff() {
@@ -1511,7 +1483,7 @@
         html += '<tr class="pointer" onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(club) + '\')">';
         html += '<td>' + (idx + 1) + '</td>';
         html += '<td class="text-left"><span class="assist-table-row-club">' + getClubLogoMini(club) + '<strong>' + p.name + '</strong></span></td>';
-        html += '<td class="text-left"><span class="club-link" onclick="event.stopPropagation(); openClubCabinet(\'' + escapeAttr(club) + '\')">' + club + '</span></td>';
+        html += '<td class="text-left"><span class="club-link" onclick="event.stopPropagation(); window.navigateToTeam && window.navigateToTeam(\'' + escapeAttr(club) + '\')">' + club + '</span></td>';
         html += '<td>' + (p.m || 0) + '</td>';
         html += '<td class="assist-cell">' + p.assists + '</td>';
         html += '</tr>';
@@ -1531,7 +1503,7 @@
         html += '<tr class="pointer" onclick="openPlayerModal(\'' + escapeAttr(p.name) + '\',\'' + escapeAttr(club) + '\')">' +
           '<td>' + (idx + 1) + '</td>' +
           '<td class="text-left"><span class="assist-table-row-club">' + getClubLogoMini(club) + '<strong>' + p.name + '</strong></span></td>' +
-          '<td class="text-left"><span class="club-link" onclick="event.stopPropagation(); openClubCabinet(\'' + escapeAttr(club) + '\')">' + club + '</span></td>' +
+          '<td class="text-left"><span class="club-link" onclick="event.stopPropagation(); window.navigateToTeam && window.navigateToTeam(\'' + escapeAttr(club) + '\')">' + club + '</span></td>' +
           '<td class="yellow-cell">' + p.yellowCards + '</td>' +
           '<td class="red-cell">' + p.redCards + '</td></tr>';
       });
@@ -1565,7 +1537,6 @@
       c.innerHTML = html;
     }
 
-    /* ⚡ Единый реестр фото — приоритет, затем fallback на teamsData.js */
     function getClubMainPhoto(clubName) {
       if (window.lfldMedia && window.lfldMedia.getTeamPhoto) {
         var u = window.lfldMedia.getTeamPhoto(clubName);
@@ -1638,7 +1609,6 @@
           fromMaster.forEach(function(p, i) {
             var posCls = 'pos-' + (p.pos || 'УНИ').toLowerCase();
             var photoUrl = '';
-            /* ⚡ Сначала единый реестр, потом БД игрока */
             if (window.lfldMedia && window.lfldMedia.getPlayerPhoto) {
               photoUrl = window.lfldMedia.getPlayerPhoto(p.name) || '';
             }
@@ -1702,7 +1672,7 @@
       if (window.openPlayerCabinet) window.openPlayerCabinet(playerNameOrId, clubHint || null);
       else console.warn('[player-modal] player-cabinet.js не загружен');
     }
-    function closePlayerModal() { var el = document.getElementById('playerModal'); if (el) el.style.display = 'none'; }
+    function closePlayerModal() { var el = document.getElementById('playerCabinetModal'); if (el) el.style.display = 'none'; }
 
     function renderAffiche() {
       try {
@@ -1737,9 +1707,9 @@
         html += '<div class="hm-top"><span class="hm-tour">' + (m.tour || '') + ' • ' + (tournamentsData[x.tk].title || '') + '</span>';
         html += '<span class="hm-date">' + (m.date || 'Дата не назначена') + '</span></div>';
         html += '<div class="hm-teams">';
-        html += '<div class="hm-team" onclick="openClubCabinet(\'' + escapeAttr(m.t1) + '\')"><div class="hm-team-logo">' + getClubLogoForCard(m.t1) + '</div><div class="hm-team-name">' + m.t1 + '</div></div>';
+        html += '<div class="hm-team" onclick="window.navigateToTeam && window.navigateToTeam(\'' + escapeAttr(m.t1) + '\')"><div class="hm-team-logo">' + getClubLogoForCard(m.t1) + '</div><div class="hm-team-name">' + m.t1 + '</div></div>';
         html += '<div class="hm-vs">VS</div>';
-        html += '<div class="hm-team" onclick="openClubCabinet(\'' + escapeAttr(m.t2) + '\')"><div class="hm-team-logo">' + getClubLogoForCard(m.t2) + '</div><div class="hm-team-name">' + m.t2 + '</div></div>';
+        html += '<div class="hm-team" onclick="window.navigateToTeam && window.navigateToTeam(\'' + escapeAttr(m.t2) + '\')"><div class="hm-team-logo">' + getClubLogoForCard(m.t2) + '</div><div class="hm-team-name">' + m.t2 + '</div></div>';
         html += '</div>';
         if (m.stadium) html += '<div class="hm-stadium">📍 ' + m.stadium + '</div>';
         html += '</div>';
@@ -1845,12 +1815,9 @@
     try { document.getElementById('fedLogoDisplay').innerHTML = getFedLogoHtml(); } catch(e) {}
     try { ensureCurrentTourney(); renderSidebar(); initHeroCarousel(); showWelcome(); } catch(e) { console.error('Init:', e); }
 
-    /* ============================================================
-       МОДУЛЬ ФОНА САЙТА (паттерн)
-       ============================================================ */
+    /* ---- Фон сайта ---- */
     var BG_KEY = 'lfld_site_background';
     var DEFAULT_BG = "url('bg-pattern.jpg')";
-
     function applySiteBackground(url) {
       var layer = document.getElementById('site-bg-layer');
       if (!layer) return;
@@ -1986,6 +1953,7 @@
     window.getWelcomePhotos = getWelcomePhotos;
     window.startWelcomeTimer = startWelcomeTimer;
     window.openPlayerModal = openPlayerModal;
+    window.closePlayerModal = closePlayerModal;
     window.makeMatchId = makeMatchId;
     window.getCurrentTourneyKey = function() { return currentTourneyKey; };
     window.organizersData = organizersData;
@@ -2008,41 +1976,19 @@
     window.toggleAdminPanel = toggleAdminPanel;
   </script>
 
-  <!-- ⚡ ДИНАМИЧЕСКАЯ ЗАГРУЗКА БАЗЫ С АНТИКЭШЕМ (критично для синхронизации фото между устройствами!) -->
-  <script>
-    (function () {
-      // Защита от жесткого кэширования на смартфонах: подключаем базу с timestamp
-      const dbScript = document.createElement('script');
-      dbScript.src = 'allTournamentsMasterData.js?v=' + new Date().getTime();
-      dbScript.onload = function () {
-        // База загружена — запускаем импорт после загрузки всех зависимостей
-        if (window.database && window.database.importFromMasterDatabase) {
-          try {
-            var r = window.database.importFromMasterDatabase(true);
-            if (r) {
-              console.log('[app] Master imported (force):', r);
-              if (window.renderTourney) window.renderTourney();
-              if (window.renderSidebar) window.renderSidebar();
-              if (window.updateDynamicTabs) window.updateDynamicTabs();
-            }
-          } catch (e) { console.warn('[app] bootstrap error', e); }
-        }
-        if (window.renderHomeSymbolic) window.renderHomeSymbolic();
-        if (window.renderHomeUpcoming) window.renderHomeUpcoming();
-        if (window.LFLD_V2 && window.LFLD_V2.renderHomeAffiche) window.LFLD_V2.renderHomeAffiche();
-      };
-      dbScript.onerror = function () {
-        console.warn('[app] Не удалось загрузить allTournamentsMasterData.js — работаем с localStorage');
-      };
-      document.head.appendChild(dbScript);
-    })();
-  </script>
-
   <script src="database.js?v=3.0"></script>
   <script src="auth.js?v=3.0"></script>
   <script src="rosters.js?v=3.0"></script>
-  <script src="player-cabinet.js?v=3.0"></script>
+
+  <!-- ⚡ РЕЗОЛВЕР ИГРОКОВ (каскадный, без alert, единый профиль) -->
+  <script src="player-resolver.js?v=4.0"></script>
+
+  <!-- ⚡ ДОСЬЕ ИГРОКА (полная карьера, кликабельные клубы) -->
+  <script src="player-cabinet.js?v=5.0"></script>
+
+  <!-- ⚡ ЕДИНЫЙ РЕЕСТР ФОТО (запрет одиночных фамилий) -->
   <script src="lfld-media.js?v=3.0"></script>
+
   <script src="admin-extras.js?v=3.0"></script>
   <script src="lfld-v2.js?v=3.0"></script>
   <script src="totw-public.js?v=3.0"></script>
@@ -2050,6 +1996,39 @@
   <script src="crop-enhanced.js?v=3.0"></script>
   <script src="site-blur-bg.js?v=3.0"></script>
   <script src="sidebar-and-dates-fix.js?v=3.0"></script>
+
+  <!-- ⚡ ДЕДУПЛИКАЦИЯ ИГРОКОВ (v5.2) -->
+  <script src="lfld-deduplicate.js?v=5.2"></script>
+
+  <!-- ⚡ ПАТЧ ТРАНСФЕРОВ + navigateToTeam + делегирование кликов -->
+  <script src="lfld-career-fix.js?v=1.0"></script>
+
+  <!-- ⚡ GITHUB SYNC (встраивает фото в отправляемый JSON) -->
   <script src="github-sync.js?v=3.0"></script>
+
+  <!-- ⚡ Финальный бутстрап после загрузки базы с антикэшем -->
+  <script>
+    window.__LFLD_AFTER_DB_LOAD__ = function () {
+      try {
+        if (window.database && window.database.importFromMasterDatabase) {
+          var r = window.database.importFromMasterDatabase(true);
+          if (r) {
+            console.log('[app] Master imported (force):', r);
+            if (window.renderTourney) window.renderTourney();
+            if (window.renderSidebar) window.renderSidebar();
+            if (window.updateDynamicTabs) window.updateDynamicTabs();
+          }
+        }
+      } catch (e) { console.warn('[app] bootstrap error', e); }
+      if (window.executeFullDatabaseCleanup) { try { window.executeFullDatabaseCleanup(); } catch (e) {} }
+      /* ⚡ Применяем патч трансферов ПОСЛЕ импорта базы */
+      if (window.LFLD_MASTER_DB && window.__applyCareerFix) {
+        try { window.__applyCareerFix(); } catch (e) {}
+      }
+      if (window.renderHomeSymbolic) window.renderHomeSymbolic();
+      if (window.renderHomeUpcoming) window.renderHomeUpcoming();
+      if (window.LFLD_V2 && window.LFLD_V2.renderHomeAffiche) window.LFLD_V2.renderHomeAffiche();
+    };
+  </script>
 </body>
 </html>

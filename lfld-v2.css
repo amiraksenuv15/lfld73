@@ -2055,4 +2055,34 @@ img:not([src]) {
   background: #1e293b;
   font-size: 18px;
   opacity: 0.5;
+} /* ============ Кликабельные плашки клубов в досье ============ */
+.pc-club-tag-clickable {
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+.pc-club-tag-clickable:hover {
+  background: rgba(59, 130, 246, 0.35) !important;
+  border-color: #3b82f6 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+}
+.pc-club-link:hover {
+  color: #60a5fa !important;
+  text-decoration: underline !important;
+}
+/* Кликабельные логотипы клубов — курсор */
+.club-link,
+.lfld-card-team-logo,
+.lfld-card-team-name,
+.hm-team,
+.amc-team,
+.award-pill,
+.assist-table-row-club {
+  cursor: pointer;
+}
+.club-link:hover,
+.hm-team:hover .hm-team-name,
+.amc-team:hover .amc-team-name {
+  opacity: 0.85;
+  transition: opacity 0.15s;
 }
