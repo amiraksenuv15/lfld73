@@ -112,7 +112,6 @@
     }
     #toggle-roster-btn:active { transform: translateY(0); }
 
-    /* ⚡ Кликабельные плашки клубов в досье */
     .pc-club-tag-clickable {
       transition: all 0.15s ease;
       cursor: pointer;
@@ -177,6 +176,11 @@
       document.head.appendChild(s);
     })();
   </script>
+
+  <!-- ⚡ МОДУЛЬНЫЕ ХРАНИЛИЩА ДАННЫХ -->
+  <script src="teamPhotosData.js?v=1.0"></script>
+  <script src="playerPersonalData.js?v=1.0"></script>
+  <script src="teamMediaData.js?v=1.0"></script>
 </head>
 <body>
   <div id="site-bg-layer" style="background-image: url('bg-pattern.jpg');"></div>
@@ -1537,11 +1541,24 @@
       c.innerHTML = html;
     }
 
+    /* ⚡ Обновлённый getClubMainPhoto — читает из teamPhotosData */
     function getClubMainPhoto(clubName) {
-      if (window.lfldMedia && window.lfldMedia.getTeamPhoto) {
-        var u = window.lfldMedia.getTeamPhoto(clubName);
+      /* 1. Новое модульное хранилище */
+      if (window.teamPhotos && window.teamPhotos.getTeamPhoto) {
+        var u = window.teamPhotos.getTeamPhoto(clubName);
         if (u) return u;
       }
+      /* 2. teamMediaData */
+      if (window.teamMedia && window.teamMedia.getTeamPhoto) {
+        var u2 = window.teamMedia.getTeamPhoto(clubName);
+        if (u2) return u2;
+      }
+      /* 3. lfldMedia */
+      if (window.lfldMedia && window.lfldMedia.getTeamPhoto) {
+        var u3 = window.lfldMedia.getTeamPhoto(clubName);
+        if (u3) return u3;
+      }
+      /* 4. teamsData.js fallback */
       if (window.teamsDatabase) {
         var r = (window.teamRosters && window.teamRosters.resolveClubName) || null;
         var keys = Object.keys(window.teamsDatabase);
@@ -1819,39 +1836,17 @@
     var BG_KEY = 'lfld_site_background';
     var DEFAULT_BG = "url('bg-pattern.jpg')";
     function applySiteBackground(url) {
-      var layer = document.getElementById('site-bg-layer');
-      if (!layer) return;
-      if (url) {
-        layer.style.backgroundImage = 'url("' + url + '")';
-        layer.style.opacity = '0.25';
-        document.body.classList.add('has-custom-bg');
-      } else {
-        layer.style.backgroundImage = DEFAULT_BG;
-        layer.style.opacity = '1';
-        document.body.classList.remove('has-custom-bg');
-      }
+      var layer = document.getElementById('site-bg-layer'); if (!layer) return;
+      if (url) { layer.style.backgroundImage = 'url("' + url + '")'; layer.style.opacity = '0.25'; document.body.classList.add('has-custom-bg'); }
+      else { layer.style.backgroundImage = DEFAULT_BG; layer.style.opacity = '1'; document.body.classList.remove('has-custom-bg'); }
     }
-    function loadSiteBackground() {
-      try {
-        var saved = localStorage.getItem(BG_KEY);
-        if (saved) applySiteBackground(saved);
-      } catch(e) {}
-    }
-    function setSiteBackground(url) {
-      try { if (url) localStorage.setItem(BG_KEY, url); else localStorage.removeItem(BG_KEY); } catch(e) {}
-      applySiteBackground(url);
-    }
-    function clearSiteBackground() {
-      try { localStorage.removeItem(BG_KEY); } catch(e) {}
-      applySiteBackground('');
-    }
+    function loadSiteBackground() { try { var saved = localStorage.getItem(BG_KEY); if (saved) applySiteBackground(saved); } catch(e) {} }
+    function setSiteBackground(url) { try { if (url) localStorage.setItem(BG_KEY, url); else localStorage.removeItem(BG_KEY); } catch(e) {} applySiteBackground(url); }
+    function clearSiteBackground() { try { localStorage.removeItem(BG_KEY); } catch(e) {} applySiteBackground(''); }
 
     function renderSiteBgAdmin() {
-      var wrap = document.getElementById('siteBgAdminWrap');
-      if (!wrap) return;
-      var current = '';
-      try { current = localStorage.getItem(BG_KEY) || ''; } catch(e) {}
-
+      var wrap = document.getElementById('siteBgAdminWrap'); if (!wrap) return;
+      var current = ''; try { current = localStorage.getItem(BG_KEY) || ''; } catch(e) {}
       wrap.innerHTML =
         '<div class="admin-extras-section">' +
           '<h3>🎨 Фоновое изображение сайта (паттерн)</h3>' +
@@ -1867,56 +1862,19 @@
           '</div>' +
           '<div class="ai-status" id="bgStatus"></div>' +
         '</div>';
-
       var preview = document.getElementById('bgPreview');
       function renderPreview(url) {
         if (!preview) return;
         preview.innerHTML = url
-          ? '<div style="font-size:11px;color:#64748b;margin-bottom:4px;">Текущий кастомный фон:</div>' +
-            '<img src="' + url + '" style="max-width:220px;max-height:120px;border-radius:8px;border:1px solid #334155;display:block;">'
+          ? '<div style="font-size:11px;color:#64748b;margin-bottom:4px;">Текущий кастомный фон:</div><img src="' + url + '" style="max-width:220px;max-height:120px;border-radius:8px;border:1px solid #334155;display:block;">'
           : '<span style="color:#64748b;font-size:12px;font-style:italic;">Используется паттерн по умолчанию</span>';
       }
       renderPreview(current);
-
-      var fileInp = document.getElementById('bgFileInput');
-      var urlInp = document.getElementById('bgUrlInput');
-      var previewUrl = current;
-
-      if (fileInp) fileInp.onchange = function () {
-        var f = this.files && this.files[0];
-        if (!f) return;
-        var reader = new FileReader();
-        reader.onload = function (e) { previewUrl = e.target.result; renderPreview(previewUrl); if (urlInp) urlInp.value = ''; };
-        reader.readAsDataURL(f);
-      };
-      if (urlInp) urlInp.oninput = function () {
-        if (this.value.trim()) { previewUrl = this.value.trim(); renderPreview(previewUrl); }
-      };
-
-      var applyBtn = document.getElementById('bgApplyBtn');
-      if (applyBtn) applyBtn.onclick = function () {
-        var url = previewUrl;
-        if (urlInp && urlInp.value.trim()) url = urlInp.value.trim();
-        if (!url) {
-          var st = document.getElementById('bgStatus');
-          if (st) { st.className = 'ai-status show err'; st.innerText = 'Выберите файл или укажите ссылку'; }
-          return;
-        }
-        setSiteBackground(url);
-        var st = document.getElementById('bgStatus');
-        if (st) { st.className = 'ai-status show ok'; st.innerText = 'Кастомный фон применён'; }
-      };
-      var resetBtn = document.getElementById('bgResetBtn');
-      if (resetBtn) resetBtn.onclick = function () {
-        if (!confirm('Вернуть паттерн по умолчанию?')) return;
-        clearSiteBackground();
-        previewUrl = '';
-        renderPreview('');
-        if (fileInp) fileInp.value = '';
-        if (urlInp) urlInp.value = '';
-        var st = document.getElementById('bgStatus');
-        if (st) { st.className = 'ai-status show ok'; st.innerText = 'Возвращён паттерн по умолчанию'; }
-      };
+      var fileInp = document.getElementById('bgFileInput'); var urlInp = document.getElementById('bgUrlInput'); var previewUrl = current;
+      if (fileInp) fileInp.onchange = function () { var f = this.files && this.files[0]; if (!f) return; var reader = new FileReader(); reader.onload = function (e) { previewUrl = e.target.result; renderPreview(previewUrl); if (urlInp) urlInp.value = ''; }; reader.readAsDataURL(f); };
+      if (urlInp) urlInp.oninput = function () { if (this.value.trim()) { previewUrl = this.value.trim(); renderPreview(previewUrl); } };
+      var applyBtn = document.getElementById('bgApplyBtn'); if (applyBtn) applyBtn.onclick = function () { var url = previewUrl; if (urlInp && urlInp.value.trim()) url = urlInp.value.trim(); if (!url) { var st = document.getElementById('bgStatus'); if (st) { st.className = 'ai-status show err'; st.innerText = 'Выберите файл или укажите ссылку'; } return; } setSiteBackground(url); var st = document.getElementById('bgStatus'); if (st) { st.className = 'ai-status show ok'; st.innerText = 'Кастомный фон применён'; } };
+      var resetBtn = document.getElementById('bgResetBtn'); if (resetBtn) resetBtn.onclick = function () { if (!confirm('Вернуть паттерн по умолчанию?')) return; clearSiteBackground(); previewUrl = ''; renderPreview(''); if (fileInp) fileInp.value = ''; if (urlInp) urlInp.value = ''; var st = document.getElementById('bgStatus'); if (st) { st.className = 'ai-status show ok'; st.innerText = 'Возвращён паттерн по умолчанию'; } };
     }
     loadSiteBackground();
     var _prevAdminOpen = window.onAdminPanelOpened;
@@ -1980,14 +1938,11 @@
   <script src="auth.js?v=3.0"></script>
   <script src="rosters.js?v=3.0"></script>
 
-  <!-- ⚡ РЕЗОЛВЕР ИГРОКОВ (каскадный, без alert, единый профиль) -->
-  <script src="player-resolver.js?v=4.0"></script>
-
-  <!-- ⚡ ДОСЬЕ ИГРОКА (полная карьера, кликабельные клубы) -->
-  <script src="player-cabinet.js?v=5.0"></script>
-
-  <!-- ⚡ ЕДИНЫЙ РЕЕСТР ФОТО (запрет одиночных фамилий) -->
-  <script src="lfld-media.js?v=3.0"></script>
+  <script src="player-resolver.js?v=6.0"></script>
+  <script src="lfld-media.js?v=5.0"></script>
+  <script src="lfld-birth-dates.js?v=1.0"></script>
+  <script src="lfld-canonical-names.js?v=1.0"></script>
+  <script src="lfld-data-fixes.js?v=1.0"></script>
 
   <script src="admin-extras.js?v=3.0"></script>
   <script src="lfld-v2.js?v=3.0"></script>
@@ -1996,17 +1951,17 @@
   <script src="crop-enhanced.js?v=3.0"></script>
   <script src="site-blur-bg.js?v=3.0"></script>
   <script src="sidebar-and-dates-fix.js?v=3.0"></script>
-
-  <!-- ⚡ ДЕДУПЛИКАЦИЯ ИГРОКОВ (v5.2) -->
   <script src="lfld-deduplicate.js?v=5.2"></script>
-
-  <!-- ⚡ ПАТЧ ТРАНСФЕРОВ + navigateToTeam + делегирование кликов -->
   <script src="lfld-career-fix.js?v=1.0"></script>
 
-  <!-- ⚡ GITHUB SYNC (встраивает фото в отправляемый JSON) -->
-  <script src="github-sync.js?v=3.0"></script>
+  <script src="player-modal-safe.js?v=3.1"></script>
 
-  <!-- ⚡ Финальный бутстрап после загрузки базы с антикэшем -->
+  <!-- ⚡ ПРИНУДИТЕЛЬНАЯ СИНХРОНИЗАЦИЯ МАТЧЕЙ НОЧНОЙ ЛИГИ -->
+  <script src="night-league-sync.js?v=1.0"></script>
+
+  <!-- ⚡ GITHUB SYNC (публикует все модули) -->
+  <script src="github-sync.js?v=5.0"></script>
+
   <script>
     window.__LFLD_AFTER_DB_LOAD__ = function () {
       try {
@@ -2021,7 +1976,6 @@
         }
       } catch (e) { console.warn('[app] bootstrap error', e); }
       if (window.executeFullDatabaseCleanup) { try { window.executeFullDatabaseCleanup(); } catch (e) {} }
-      /* ⚡ Применяем патч трансферов ПОСЛЕ импорта базы */
       if (window.LFLD_MASTER_DB && window.__applyCareerFix) {
         try { window.__applyCareerFix(); } catch (e) {}
       }
