@@ -1,10 +1,5 @@
-/* ============================================================
-   playerPersonalData.js — автогенерация из админки
-   Опубликовано: 2026-10-21T06:49:49.890Z
-   ============================================================ */
-
+/* playerPersonalData.js — автогенерация */
 window.LFLD_PLAYER_PERSONAL = window.LFLD_PLAYER_PERSONAL || {};
-
 Object.assign(window.LFLD_PLAYER_PERSONAL, {
   "p_vasin_egor": {
     "fullName": "Васин Егор Евгеньевич",
@@ -872,13 +867,3 @@ Object.assign(window.LFLD_PLAYER_PERSONAL, {
     "birthDate": "—"
   }
 });
-
-/* ---------- Автосинхронизация в localStorage ---------- */
-(function () {
-  if (!window.LFLD_PLAYER_PERSONAL) return;
-  try {
-    var existing = JSON.parse(localStorage.getItem("lfld_player_personal_v1") || "{}");
-    var merged = Object.assign({}, window.LFLD_PLAYER_PERSONAL, existing);
-    localStorage.setItem("lfld_player_personal_v1", JSON.stringify(merged));
-  } catch (e) {}
-})();
