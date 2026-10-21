@@ -8,6 +8,11 @@
   <meta http-equiv="Expires" content="0">
   <title>Федерация Футбола г. Димитровграда</title>
 
+  <!-- ⚡ FAVICON — официальная эмблема лиги -->
+  <link rel="icon" type="image/png" href="logos/lfld.png">
+  <link rel="shortcut icon" type="image/png" href="logos/lfld.png">
+  <link rel="apple-touch-icon" href="logos/lfld.png">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Russo+One&family=Ubuntu:wght@400;500;700&display=swap">
@@ -599,6 +604,7 @@
     var FED_LOGO = "logos/lfld.png";
     var VK_COMMUNITY_URL = "https://vk.ru/lfldd";
 
+    /* ⚡ clubsData — добавлены Real TJK + эмблемы Тонус/Detali63SMR */
     var clubsData = [
       { name: "Химмаш",           logo: "logos/himmash.png" },
       { name: "Нейтрон",          logo: "logos/neutron.png" },
@@ -612,12 +618,13 @@
       { name: "Авангард",         logo: "logos/avangard.png" },
       { name: "Автостар",         logo: "logos/autostar.png" },
       { name: "Волга",            logo: "⚽" },
-      { name: "Тонус",            logo: "⚽" },
+      { name: "Тонус",            logo: "logos/tonus.png" },
       { name: "ФК НЕ Молодёжка",  logo: "⚽" },
       { name: "ДИТИ НИЯУ МИФИ",   logo: "logos/mifi.png" },
       { name: "СШ Лада",          logo: "logos/lada.png" },
       { name: "Нефтчи",           logo: "logos/neftchi.png" },
-      { name: "Detali63SMR",      logo: "⚽" }
+      { name: "Detali63SMR",      logo: "logos/detali63.png" },
+      { name: "Real TJK",         logo: "logos/realtjk.png" }
     ];
 
     var CLUB_ALIASES = {
@@ -1541,24 +1548,19 @@
       c.innerHTML = html;
     }
 
-    /* ⚡ Обновлённый getClubMainPhoto — читает из teamPhotosData */
     function getClubMainPhoto(clubName) {
-      /* 1. Новое модульное хранилище */
       if (window.teamPhotos && window.teamPhotos.getTeamPhoto) {
         var u = window.teamPhotos.getTeamPhoto(clubName);
         if (u) return u;
       }
-      /* 2. teamMediaData */
       if (window.teamMedia && window.teamMedia.getTeamPhoto) {
         var u2 = window.teamMedia.getTeamPhoto(clubName);
         if (u2) return u2;
       }
-      /* 3. lfldMedia */
       if (window.lfldMedia && window.lfldMedia.getTeamPhoto) {
         var u3 = window.lfldMedia.getTeamPhoto(clubName);
         if (u3) return u3;
       }
-      /* 4. teamsData.js fallback */
       if (window.teamsDatabase) {
         var r = (window.teamRosters && window.teamRosters.resolveClubName) || null;
         var keys = Object.keys(window.teamsDatabase);
@@ -1832,7 +1834,6 @@
     try { document.getElementById('fedLogoDisplay').innerHTML = getFedLogoHtml(); } catch(e) {}
     try { ensureCurrentTourney(); renderSidebar(); initHeroCarousel(); showWelcome(); } catch(e) { console.error('Init:', e); }
 
-    /* ---- Фон сайта ---- */
     var BG_KEY = 'lfld_site_background';
     var DEFAULT_BG = "url('bg-pattern.jpg')";
     function applySiteBackground(url) {
@@ -1938,7 +1939,7 @@
   <script src="auth.js?v=3.0"></script>
   <script src="rosters.js?v=3.0"></script>
 
-  <script src="player-resolver.js?v=6.0"></script>
+  <script src="player-resolver.js?v=6.1"></script>
   <script src="lfld-media.js?v=5.0"></script>
   <script src="lfld-birth-dates.js?v=1.0"></script>
   <script src="lfld-canonical-names.js?v=1.0"></script>
@@ -1947,7 +1948,7 @@
   <script src="admin-extras.js?v=3.0"></script>
   <script src="lfld-v2.js?v=3.0"></script>
   <script src="totw-public.js?v=3.0"></script>
-  <script src="cup-metallist.js?v=3.0"></script>
+  <script src="cup-metallist.js?v=4.0"></script>
   <script src="crop-enhanced.js?v=3.0"></script>
   <script src="site-blur-bg.js?v=3.0"></script>
   <script src="sidebar-and-dates-fix.js?v=3.0"></script>
@@ -1956,10 +1957,8 @@
 
   <script src="player-modal-safe.js?v=3.1"></script>
 
-  <!-- ⚡ ПРИНУДИТЕЛЬНАЯ СИНХРОНИЗАЦИЯ МАТЧЕЙ НОЧНОЙ ЛИГИ -->
   <script src="night-league-sync.js?v=1.0"></script>
 
-  <!-- ⚡ GITHUB SYNC (публикует все модули) -->
   <script src="github-sync.js?v=5.0"></script>
 
   <script>

@@ -1,72 +1,49 @@
 /* ============================================================
-   player-modal-safe.js v3.1
+   player-modal-safe.js v5.0
 
-   ПРАВКИ:
-   v3.0:
+   КЛЮЧЕВОЕ УЛУЧШЕНИЕ v5.0:
+   - Многоуровневый каскад поиска даты рождения:
+     1. dbPlayer.birthDate (database.js)
+     2. Найти в database.js заново по name/club
+     3. player.birth (resolved от PlayerResolver)
+     4. window.playerPersonal.getBirthDate(id)
+     5. window.LFLD_BIRTH_DATES[id] / [fio] / [фамилия_имя]
+     6. window.getBirthDate() helper
+     7. Все турниры LFLD_MASTER_DB (teams + cup players)
+     8. '—'
+
+   - Аналогично для ФИО и позиции:
+     1. dbPlayer (database.js)
+     2. playerPersonal
+     3. LFLD_MASTER_DB
+     4. PlayerResolver
+
    - Компактные имена в списках, полное ФИО в досье
    - ID скрыт из интерфейса
-   - Сквозной поиск даты рождения
-
-   v3.1:
-   - Интеграция с window.playerPersonal (playerPersonalData.js)
-   - Приоритет: playerPersonal → LFDL_BIRTH_DATES → master DB
-   - Гарантированное открытие модалки без ошибок
    ============================================================ */
 (function () {
   'use strict';
 
-  /* ============================================================
-     УТИЛИТЫ
-     ============================================================ */
   function safeStr(v) { return String(v == null ? '' : v); }
-
   function escapeHtml(s) {
     return safeStr(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
-
   function normKey(s) {
-    return safeStr(s)
-      .toLowerCase()
-      .replace(/ё/g, 'е')
-      .replace(/[^a-zа-я0-9]/gi, '')
-      .trim();
+    return safeStr(s).toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]/gi, '').trim();
   }
-
   function normWithSpaces(s) {
-    return safeStr(s)
-      .toLowerCase()
-      .replace(/ё/g, 'е')
+    return safeStr(s).toLowerCase().replace(/ё/g, 'е')
       .replace(/[^a-zа-я0-9\s]/gi, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+      .replace(/\s+/g, ' ').trim();
   }
-
-  /**
-   * Компактное имя: «Фамилия Имя» (2 слова, без отчества).
-   */
   function compactName(fullName) {
     if (!fullName) return '';
     var words = safeStr(fullName).trim().split(/\s+/).filter(Boolean);
     if (words.length <= 2) return words.join(' ');
     return words.slice(0, 2).join(' ');
   }
-
-  /**
-   * Полное имя: «Фамилия Имя Отчество» (если есть отчество).
-   */
-  function fullName(fullName, officialFullName) {
-    var src = officialFullName || fullName || '';
-    var words = safeStr(src).trim().split(/\s+/).filter(Boolean);
-    return words.join(' ');
-  }
-
-  /**
-   * Возраст из даты рождения.
-   */
   function ageFromBirth(birth) {
     if (!birth || birth === '—') return null;
     var m = String(birth).match(/(\d{2})\.(\d{2})\.(\d{4})/);
@@ -83,16 +60,8 @@
     if (isNaN(d.getTime())) return null;
     return Math.floor((Date.now() - d.getTime()) / (365.25 * 24 * 3600 * 1000));
   }
-
   function posBadgeClass(pos) {
-    var map = {
-      'ВРТ': 'pos-vrt',
-      'ЗАЩ': 'pos-zas',
-      'ПЗ': 'pos-pz',
-      'НАП': 'pos-nap',
-      'АТК': 'pos-nap',
-      'УНИ': 'pos-uni'
-    };
+    var map = { 'ВРТ':'pos-vrt','ЗАЩ':'pos-zas','ПЗ':'pos-pz','НАП':'pos-nap','АТК':'pos-nap','УНИ':'pos-uni' };
     return map[pos] || 'pos-uni';
   }
 
@@ -101,18 +70,12 @@
      ============================================================ */
   function parseArgs(arg1, arg2) {
     var result = { id: null, name: '', club: safeStr(arg2).trim(), obj: null };
-
     try {
       if (arg1 == null) {
         if (arg2 && typeof arg2 === 'object') {
-          arg1 = arg2;
-          arg2 = '';
-          result.club = '';
-        } else {
-          return result;
-        }
+          arg1 = arg2; arg2 = ''; result.club = '';
+        } else return result;
       }
-
       if (typeof arg1 === 'object') {
         result.obj = arg1;
         result.id = arg1.id || null;
@@ -126,86 +89,147 @@
       } else if (typeof arg1 === 'number') {
         result.id = 'p_' + arg1;
       }
-    } catch (e) {
-      console.warn('[openPlayerModal] parseArgs:', e);
-    }
-
+    } catch (e) {}
     return result;
   }
 
   /* ============================================================
-     ПОИСК ПОЛНОГО ФИО С ОТЧЕСТВОМ
-     Приоритет:
-     1) playerPersonal.getFullName(id)
-     2) Обход всех турниров (самое полное имя)
-     3) PlayerResolver.fullOfficial
-     4) database.js
+     ПОИСК В DATABASE.JS
      ============================================================ */
-  function findFullOfficialName(id, name, clubHint) {
-    /* 1. ⚡ Из реестра playerPersonal */
-    if (window.playerPersonal && window.playerPersonal.getFullName && id) {
+  function findInDatabase(id, name, clubHint) {
+    if (!window.database) return null;
+
+    /* 1. По ID */
+    if (id && window.database.getPlayer) {
       try {
-        var pName = window.playerPersonal.getFullName(id);
-        if (pName) return pName;
+        var byId = window.database.getPlayer(id);
+        if (byId) return byId;
       } catch (e) {}
     }
 
-    /* 2. Обход всех турниров — берём самое длинное ФИО */
+    /* 2. Через findPlayersByName */
+    if (name && window.database.findPlayersByName) {
+      try {
+        var found = window.database.findPlayersByName(name, clubHint);
+        if (found && found.length) return found[0];
+      } catch (e) {}
+    }
+
+    /* 3. Ручной обход */
+    if (window.database.players) {
+      try {
+        var all = window.database.players();
+        var targetKey = normKey(name);
+        if (!targetKey) return null;
+        var list = Object.keys(all).map(function (k) { return all[k]; });
+
+        /* 3a. Точное полное ФИО */
+        var exact = list.find(function (p) {
+          var full = normKey([p.lastName, p.firstName, p.middleName].filter(Boolean).join(' '));
+          return full === targetKey;
+        });
+        if (exact) return exact;
+
+        /* 3b. Фамилия + Имя (без отчества) */
+        var shortMatch = list.find(function (p) {
+          var short = normKey([p.lastName, p.firstName].filter(Boolean).join(' '));
+          return short === targetKey;
+        });
+        if (shortMatch) return shortMatch;
+
+        /* 3c. Фамилия + первая буква имени */
+        var nameParts = normWithSpaces(name).split(' ').filter(Boolean);
+        if (nameParts.length >= 1) {
+          var surname = nameParts[0];
+          var firstInitial = nameParts[1] ? nameParts[1][0] : '';
+          var partsMatch = list.find(function (p) {
+            if (normKey(p.lastName) !== surname) return false;
+            if (!firstInitial) return true;
+            var pFirst = normKey(p.firstName);
+            return pFirst && pFirst[0] === firstInitial;
+          });
+          if (partsMatch) return partsMatch;
+        }
+
+        /* 3d. Фамилия + клуб */
+        if (clubHint) {
+          var surname2 = nameParts[0];
+          var clubNorm = normKey(clubHint);
+          var byClub = list.find(function (p) {
+            if (normKey(p.lastName) !== surname2) return false;
+            return (p.clubs || []).some(function (c) { return normKey(c) === clubNorm; });
+          });
+          if (byClub) return byClub;
+        }
+      } catch (e) {}
+    }
+
+    return null;
+  }
+
+  function dbFullName(dbPlayer) {
+    if (!dbPlayer) return '';
+    return [dbPlayer.lastName, dbPlayer.firstName, dbPlayer.middleName]
+      .filter(Boolean).join(' ').trim();
+  }
+
+  /* ============================================================
+     ⚡ КАСКАД: ПОЛНОЕ ФИО
+     ============================================================ */
+  function cascadeFullName(id, name, clubHint, dbPlayer) {
+    /* 1. database.js — приоритет */
+    if (dbPlayer) {
+      var f = dbFullName(dbPlayer);
+      if (f) return f;
+    }
+    if (!dbPlayer) {
+      var db = findInDatabase(id, name, clubHint);
+      if (db) {
+        var f2 = dbFullName(db);
+        if (f2) return f2;
+      }
+    }
+
+    /* 2. playerPersonal */
+    if (window.playerPersonal && window.playerPersonal.getFullName && id) {
+      try {
+        var pn = window.playerPersonal.getFullName(id);
+        if (pn) return pn;
+      } catch (e) {}
+    }
+
+    /* 3. Обход всех турниров — самое полное ФИО */
     var M = window.LFLD_MASTER_DB;
     if (M && (name || id)) {
       var targetKey = normKey(name);
       var best = '';
-
-      function consider(candidate) {
-        if (!candidate) return;
-        var candidateWords = safeStr(candidate).trim().split(/\s+/).filter(Boolean);
-        var bestWords = best ? best.trim().split(/\s+/).filter(Boolean) : [];
-        if (candidateWords.length > bestWords.length) {
-          best = candidateWords.join(' ');
-          return;
-        }
-        if (candidateWords.length === bestWords.length && candidate.length > best.length) {
-          best = candidateWords.join(' ');
-        }
+      function consider(c) {
+        if (!c) return;
+        var w = safeStr(c).trim().split(/\s+/).filter(Boolean);
+        var bw = best ? best.trim().split(/\s+/).filter(Boolean) : [];
+        if (w.length > bw.length) { best = w.join(' '); return; }
+        if (w.length === bw.length && c.length > best.length) best = w.join(' ');
       }
-
-      var tourneyKeys = ['tournament_5x5', 'tournament_7x7', 'tournament_night', 'cup_5x5'];
-      for (var ti = 0; ti < tourneyKeys.length; ti++) {
-        var t = M[tourneyKeys[ti]];
-        if (!t) continue;
-
+      ['tournament_5x5','tournament_7x7','tournament_night','cup_5x5'].forEach(function (tk) {
+        var t = M[tk];
+        if (!t) return;
         if (t.teams) {
-          var clubKeys = Object.keys(t.teams);
-          for (var ci = 0; ci < clubKeys.length; ci++) {
-            var arr = t.teams[clubKeys[ci]] || [];
-            for (var pi = 0; pi < arr.length; pi++) {
-              var p = arr[pi];
-              if (!p || !p.name) continue;
-              var pKey = normKey(p.name);
-              if (pKey === targetKey) consider(p.name);
-              /* Мягкое: совпадает фамилия + первая буква имени */
-              var pParts = normWithSpaces(p.name).split(' ');
-              var tParts = normWithSpaces(name).split(' ');
-              if (pParts[0] === tParts[0] && pParts[1] && tParts[1] && pParts[1][0] === tParts[1][0]) {
-                consider(p.name);
-              }
-            }
-          }
+          Object.keys(t.teams).forEach(function (club) {
+            (t.teams[club] || []).forEach(function (p) {
+              if (p && p.name && normKey(p.name) === targetKey) consider(p.name);
+            });
+          });
         }
-
         if (Array.isArray(t.players)) {
-          for (var qi = 0; qi < t.players.length; qi++) {
-            var q = t.players[qi];
-            if (!q || !q.name) continue;
-            if (normKey(q.name) === targetKey) consider(q.name);
-          }
+          t.players.forEach(function (p) {
+            if (p && p.name && normKey(p.name) === targetKey) consider(p.name);
+          });
         }
-      }
-
+      });
       if (best) return best;
     }
 
-    /* 3. Через PlayerResolver */
+    /* 4. PlayerResolver */
     if (window.PlayerResolver && window.PlayerResolver.resolve) {
       try {
         var r = window.PlayerResolver.resolve(id || name, clubHint);
@@ -214,50 +238,44 @@
       } catch (e) {}
     }
 
-    /* 4. Из database.js */
-    if (id && window.database && window.database.getPlayer) {
-      try {
-        var dbP = window.database.getPlayer(id);
-        if (dbP) {
-          var fullDb = [dbP.lastName, dbP.firstName, dbP.middleName].filter(Boolean).join(' ');
-          if (fullDb) return fullDb;
-        }
-      } catch (e) {}
-    }
-
     return name || '';
   }
 
   /* ============================================================
-     ПОИСК ДАТЫ РОЖДЕНИЯ — СКВОЗНОЙ
-     Приоритет:
-     1) playerPersonal.getBirthDate(id)
-     2) LFDL_BIRTH_DATES
-     3) getBirthDate()
-     4) Обход всех турниров
-     5) database.js
+     ⚡ КАСКАД: ДАТА РОЖДЕНИЯ
      ============================================================ */
-  function findBirthDate(id, name, clubHint) {
-    /* 1. ⚡ Из реестра playerPersonal */
+  function cascadeBirthDate(id, name, clubHint, dbPlayer) {
+    /* 1. database.js — приоритет */
+    if (dbPlayer && dbPlayer.birthDate && dbPlayer.birthDate !== '—' && dbPlayer.birthDate.length >= 4) {
+      return dbPlayer.birthDate;
+    }
+    if (!dbPlayer) {
+      var db = findInDatabase(id, name, clubHint);
+      if (db && db.birthDate && db.birthDate !== '—' && db.birthDate.length >= 4) {
+        return db.birthDate;
+      }
+    }
+
+    /* 2. playerPersonal */
     if (window.playerPersonal && window.playerPersonal.getBirthDate && id) {
       try {
-        var pBirth = window.playerPersonal.getBirthDate(id);
-        if (pBirth) return pBirth;
+        var pb = window.playerPersonal.getBirthDate(id);
+        if (pb) return pb;
       } catch (e) {}
     }
 
-    /* 2. LFDL_BIRTH_DATES */
+    /* 3. LFDL_BIRTH_DATES */
     var dates = window.LFLD_BIRTH_DATES || {};
-    if (id && dates[id]) return dates[id];
+    if (id && dates[id] && dates[id] !== '—') return dates[id];
     var nKey = normKey(name);
-    if (nKey && dates[nKey]) return dates[nKey];
+    if (nKey && dates[nKey] && dates[nKey] !== '—') return dates[nKey];
     var parts = normWithSpaces(name).split(' ').filter(Boolean);
     if (parts.length >= 2) {
       var shortKey = parts[0] + '_' + parts[1];
-      if (dates[shortKey]) return dates[shortKey];
+      if (dates[shortKey] && dates[shortKey] !== '—') return dates[shortKey];
     }
 
-    /* 3. getBirthDate */
+    /* 4. getBirthDate helper */
     if (window.getBirthDate) {
       try {
         var d = window.getBirthDate({ id: id, full: name, club: clubHint });
@@ -265,70 +283,70 @@
       } catch (e) {}
     }
 
-    /* 4. Обход турниров */
+    /* 5. Обход турниров */
     var M = window.LFLD_MASTER_DB;
     if (M && (name || id)) {
       var targetKey = normKey(name);
-      var tourneyKeys = ['tournament_5x5', 'tournament_7x7', 'tournament_night', 'cup_5x5'];
-
-      for (var ti = 0; ti < tourneyKeys.length; ti++) {
-        var t = M[tourneyKeys[ti]];
-        if (!t) continue;
-
+      var found = '';
+      ['tournament_5x5','tournament_7x7','tournament_night','cup_5x5'].forEach(function (tk) {
+        if (found) return;
+        var t = M[tk];
+        if (!t) return;
         if (t.teams) {
-          var clubKeys = Object.keys(t.teams);
-          for (var ci = 0; ci < clubKeys.length; ci++) {
-            var arr = t.teams[clubKeys[ci]] || [];
-            for (var pi = 0; pi < arr.length; pi++) {
-              var p = arr[pi];
-              if (!p) continue;
-              var isMatch = (id && p.id && p.id === id)
-                         || (p.name && normKey(p.name) === targetKey);
+          Object.keys(t.teams).forEach(function (club) {
+            if (found) return;
+            (t.teams[club] || []).forEach(function (p) {
+              if (found) return;
+              if (!p) return;
+              var isMatch = (id && p.id === id) || (p.name && normKey(p.name) === targetKey);
               if (isMatch) {
                 var b = p.birth || p.birthDate;
-                if (b && b !== '—') return b;
+                if (b && b !== '—' && b.length >= 4) found = b;
               }
-            }
-          }
+            });
+          });
         }
-
-        if (Array.isArray(t.players)) {
-          for (var qi = 0; qi < t.players.length; qi++) {
-            var q = t.players[qi];
-            if (!q) continue;
-            var isMatchQ = (id && q.id && q.id === id)
-                        || (q.name && normKey(q.name) === targetKey);
-            if (isMatchQ) {
-              var bq = q.birth || q.birthDate;
-              if (bq && bq !== '—') return bq;
+        if (!found && Array.isArray(t.players)) {
+          t.players.forEach(function (p) {
+            if (found) return;
+            if (!p) return;
+            var isMatch = (id && p.id === id) || (p.name && normKey(p.name) === targetKey);
+            if (isMatch) {
+              var b = p.birth || p.birthDate;
+              if (b && b !== '—' && b.length >= 4) found = b;
             }
-          }
+          });
         }
-      }
-    }
-
-    /* 5. database.js */
-    if (id && window.database && window.database.getPlayer) {
-      try {
-        var dbP = window.database.getPlayer(id);
-        if (dbP && dbP.birthDate && dbP.birthDate !== '—') return dbP.birthDate;
-      } catch (e) {}
+      });
+      if (found) return found;
     }
 
     return '';
   }
 
   /* ============================================================
-     РЕЗОЛВ ФОТО
+     ⚡ КАСКАД: ПОЗИЦИЯ
      ============================================================ */
-  function findPhoto(id, name, clubHint) {
-    /* 1. Модульное хранилище — по ID */
+  function cascadePosition(dbPlayer, resolved) {
+    if (dbPlayer && dbPlayer.position) return dbPlayer.position;
+    if (resolved && resolved.pos) return resolved.pos;
+    return 'УНИ';
+  }
+
+  /* ============================================================
+     ФОТО
+     ============================================================ */
+  function cascadePhoto(id, name, clubHint, dbPlayer) {
+    /* 1. database.js */
+    if (dbPlayer && dbPlayer.photo) return dbPlayer.photo;
+
+    /* 2. teamMedia */
     if (id && window.teamMedia) {
       var u = window.teamMedia.findPlayerPhotoAnywhere(id);
       if (u) return u;
     }
 
-    /* 2. Через lfldMedia */
+    /* 3. lfldMedia */
     if (window.lfldMedia && window.lfldMedia.getPlayerPhoto) {
       try {
         var u2 = window.lfldMedia.getPlayerPhoto({ id: id, full: name, club: clubHint });
@@ -336,29 +354,21 @@
       } catch (e) {}
     }
 
-    /* 3. Legacy LFLD_MASTER_DB.playerPhotos */
+    /* 4. Legacy */
     var M = window.LFLD_MASTER_DB;
     if (id && M && M.playerPhotos && M.playerPhotos[id]) return M.playerPhotos[id];
 
-    /* 4. localStorage */
+    /* 5. localStorage */
     try {
       var local = JSON.parse(localStorage.getItem('ff_player_photos_by_id') || '{}');
       if (id && local[id]) return local[id];
     } catch (e) {}
 
-    /* 5. database.js */
-    if (id && window.database && window.database.getPlayer) {
-      try {
-        var dbP = window.database.getPlayer(id);
-        if (dbP && dbP.photo) return dbP.photo;
-      } catch (e) {}
-    }
-
     return '';
   }
 
   /* ============================================================
-     АГРЕГАЦИЯ КАРЬЕРЫ
+     КАРЬЕРА
      ============================================================ */
   var TOURNEY_LABELS = {
     'tournament_5x5': 'Первенство 5х5 (Лето 2026)',
@@ -373,16 +383,10 @@
     if (!M) return empty;
 
     var targetKey = normKey(name);
-
     function matches(p) {
       if (!p) return false;
       if (id && p.id && p.id === id) return true;
       if (p.name && targetKey && normKey(p.name) === targetKey) return true;
-      if (p.name && name) {
-        var c1 = compactName(p.name);
-        var c2 = compactName(name);
-        if (c1 && c2 && normKey(c1) === normKey(c2)) return true;
-      }
       return false;
     }
 
@@ -390,72 +394,55 @@
     var total = { m: 0, g: 0, a: 0, yc: 0, rc: 0 };
     var clubsMap = {};
 
-    ['cup_5x5', 'tournament_5x5', 'tournament_7x7', 'tournament_night'].forEach(function (tk) {
+    ['cup_5x5','tournament_5x5','tournament_7x7','tournament_night'].forEach(function (tk) {
       var t = M[tk];
       if (!t) return;
-
-      var club = '';
-      var m = 0, g = 0, a = 0, yc = 0, rc = 0;
+      var club = '', m = 0, g = 0, a = 0, yc = 0, rc = 0;
 
       if (t.teams) {
-        var clubKeys = Object.keys(t.teams);
-        for (var ci = 0; ci < clubKeys.length; ci++) {
-          var arr = t.teams[clubKeys[ci]] || [];
-          for (var pi = 0; pi < arr.length; pi++) {
-            if (matches(arr[pi])) {
-              club = clubKeys[ci];
-              m = arr[pi].m || 0;
-              g = arr[pi].g || 0;
-              a = arr[pi].a || 0;
-              yc = arr[pi].yc || 0;
-              rc = arr[pi].rc || 0;
-              break;
+        Object.keys(t.teams).forEach(function (clubKey) {
+          if (club) return;
+          (t.teams[clubKey] || []).forEach(function (p) {
+            if (club) return;
+            if (matches(p)) {
+              club = clubKey;
+              m = p.m || 0; g = p.g || 0; a = p.a || 0; yc = p.yc || 0; rc = p.rc || 0;
             }
-          }
-          if (club) break;
-        }
+          });
+        });
       }
 
       if (!club && Array.isArray(t.players)) {
-        for (var qi = 0; qi < t.players.length; qi++) {
-          if (matches(t.players[qi])) {
-            club = t.players[qi].team || '';
-            m = t.players[qi].m || 0;
-            g = t.players[qi].g || 0;
-            yc = t.players[qi].yc || 0;
-            rc = t.players[qi].rc || 0;
-            break;
+        t.players.forEach(function (p) {
+          if (club) return;
+          if (matches(p)) {
+            club = p.team || '';
+            m = p.m || 0; g = p.g || 0; yc = p.yc || 0; rc = p.rc || 0;
           }
-        }
+        });
       }
 
       if (club) {
         clubsMap[club] = 1;
         list.push({
           tournamentTitle: TOURNEY_LABELS[tk] || tk,
-          club: club,
-          m: m, g: g, a: a, yc: yc, rc: rc
+          club: club, m: m, g: g, a: a, yc: yc, rc: rc
         });
         total.m += m; total.g += g; total.a += a; total.yc += yc; total.rc += rc;
       }
     });
 
-    return {
-      list: list,
-      total: total,
-      clubs: Object.keys(clubsMap)
-    };
+    return { list: list, total: total, clubs: Object.keys(clubsMap) };
   }
 
   /* ============================================================
-     РЕНДЕР HTML ДОСЬЕ
+     РЕНДЕР
      ============================================================ */
   function renderCabinetHTML(profile) {
     var photoUrl = profile.photo || '';
     var displayFull = profile.fullOfficial || profile.displayName || 'Неизвестный игрок';
     var age = ageFromBirth(profile.birth);
 
-    /* Фото */
     var photoHtml;
     if (photoUrl && photoUrl.length > 30) {
       photoHtml = '<img src="' + escapeHtml(photoUrl) + '" alt="" class="pc-photo-img" ' +
@@ -465,21 +452,17 @@
       photoHtml = '<div class="pc-photo-placeholder"><span>👤</span></div>';
     }
 
-    /* Дата рождения */
     var birthHtml = '';
     if (profile.birth && profile.birth !== '—') {
       birthHtml = '<div class="pc-row">' +
-        '<strong>Дата рождения:</strong> ' +
-        escapeHtml(profile.birth) +
+        '<strong>Дата рождения:</strong> ' + escapeHtml(profile.birth) +
         (age !== null ? ' <span style="color:#94a3b8;">(' + age + ' лет)</span>' : '') +
         '</div>';
     } else {
       birthHtml = '<div class="pc-row" style="color:#64748b;">' +
-        '<strong>Дата рождения:</strong> —' +
-        '</div>';
+        '<strong>Дата рождения:</strong> —</div>';
     }
 
-    /* Клуб */
     var clubHtml = '';
     if (profile.club && profile.club !== '—') {
       var clubJs = String(profile.club).replace(/'/g, "\\'");
@@ -489,22 +472,18 @@
           'if (window.openClubCabinet) window.openClubCabinet(\'' + clubJs + '\');" ' +
           'style="cursor:pointer;background:none;border:none;padding:0;' +
           'color:#93c5fd;font:inherit;text-decoration:underline dotted;">' +
-          escapeHtml(profile.club) +
-        '</button></div>';
+          escapeHtml(profile.club) + '</button></div>';
     }
 
-    /* Награды */
     var awardsHtml = '';
     if (profile.awards && profile.awards.length) {
       awardsHtml = '<div class="pc-row" style="margin-top:10px;">' +
         '<strong>Награды:</strong> ' +
         profile.awards.map(function (a) {
           return '<span class="pc-award-badge">🏆 ' + escapeHtml(a) + '</span>';
-        }).join(' ') +
-        '</div>';
+        }).join(' ') + '</div>';
     }
 
-    /* Плашки клубов */
     var clubsPlaquesHtml = '';
     if (profile.clubs && profile.clubs.length) {
       clubsPlaquesHtml = profile.clubs.map(function (club) {
@@ -514,14 +493,12 @@
           'onclick="event.preventDefault(); event.stopPropagation(); ' +
           'if (window.openClubCabinet) window.openClubCabinet(\'' + clubJs + '\');" ' +
           'style="cursor:pointer;border:none;">' +
-          escapeHtml(club) +
-        '</button>';
+          escapeHtml(club) + '</button>';
       }).join('');
     } else {
       clubsPlaquesHtml = '<span class="pc-muted">—</span>';
     }
 
-    /* Таблица статистики */
     var careerTableHtml = '';
     if (profile.statsByTournament && profile.statsByTournament.length) {
       careerTableHtml = '<table class="pc-career-table"><thead><tr>' +
@@ -529,7 +506,6 @@
         '<th class="text-left">Турнир</th>' +
         '<th>М</th><th>Г</th><th>А</th><th>ЖК</th><th>КК</th>' +
       '</tr></thead><tbody>';
-
       profile.statsByTournament.forEach(function (s) {
         var clubJs = String(s.club || '').replace(/'/g, "\\'");
         careerTableHtml += '<tr>' +
@@ -539,9 +515,7 @@
               'if (window.openClubCabinet) window.openClubCabinet(\'' + clubJs + '\');" ' +
               'style="cursor:pointer;background:none;border:none;padding:0;' +
               'color:#93c5fd;font:inherit;text-decoration:underline dotted;">' +
-              escapeHtml(s.club || '—') +
-            '</button>' +
-          '</td>' +
+              escapeHtml(s.club || '—') + '</button></td>' +
           '<td class="text-left">' + escapeHtml(s.tournamentTitle || '') + '</td>' +
           '<td>' + (s.m || 0) + '</td>' +
           '<td class="goals-cell">' + (s.g || 0) + '</td>' +
@@ -550,69 +524,44 @@
           '<td class="red-cell">' + (s.rc || 0) + '</td>' +
         '</tr>';
       });
-
       careerTableHtml += '</tbody></table>';
     } else {
       careerTableHtml = '<div class="pc-muted">Статистика в протоколах пока отсутствует.</div>';
     }
 
-    /* Сводная статистика */
     var totalHtml = '';
     if (profile.totalStats) {
       totalHtml =
         '<h4 class="pc-section-title">📊 Сводная статистика</h4>' +
         '<div class="pc-stats pc-stats-3">' +
-          '<div class="pc-stat">' +
-            '<div class="pc-stat-value">' + (profile.totalStats.matches || 0) + '</div>' +
-            '<div class="pc-stat-label">Матчи</div>' +
-          '</div>' +
-          '<div class="pc-stat">' +
-            '<div class="pc-stat-value">' + (profile.totalStats.goals || 0) + '</div>' +
-            '<div class="pc-stat-label">⚽ Голы</div>' +
-          '</div>' +
-          '<div class="pc-stat">' +
-            '<div class="pc-stat-value">' + (profile.totalStats.assists || 0) + '</div>' +
-            '<div class="pc-stat-label">👟 Ассисты</div>' +
-          '</div>' +
+          '<div class="pc-stat"><div class="pc-stat-value">' + (profile.totalStats.matches || 0) + '</div><div class="pc-stat-label">Матчи</div></div>' +
+          '<div class="pc-stat"><div class="pc-stat-value">' + (profile.totalStats.goals || 0) + '</div><div class="pc-stat-label">⚽ Голы</div></div>' +
+          '<div class="pc-stat"><div class="pc-stat-value">' + (profile.totalStats.assists || 0) + '</div><div class="pc-stat-label">👟 Ассисты</div></div>' +
         '</div>';
     }
 
-    /* ИТОГОВАЯ РАЗМЕТКА */
     var html = '';
-
     html += '<div class="pc-header">';
     html +=   '<div class="pc-photo">' + photoHtml + '</div>';
     html +=   '<div class="pc-info">';
     html +=     '<h2 class="pc-name">' + escapeHtml(displayFull) + '</h2>';
-    html +=     '<div class="pc-pos">' +
-                  '<span class="pos-badge ' + posBadgeClass(profile.position) + '">' +
-                    escapeHtml(profile.position || 'УНИ') +
-                  '</span>' +
-                '</div>';
-    /* ⚠️ БЕЗ строки с ID */
+    html +=     '<div class="pc-pos"><span class="pos-badge ' + posBadgeClass(profile.position) + '">' + escapeHtml(profile.position || 'УНИ') + '</span></div>';
     html +=     birthHtml;
     html +=     clubHtml;
     html +=     awardsHtml;
     html +=   '</div>';
     html += '</div>';
-
     html += totalHtml;
-
-    html += '<h4 class="pc-section-title">🏟 Карьера · клубы</h4>';
-    html += '<div class="pc-tags">' + clubsPlaquesHtml + '</div>';
-
-    html += '<h4 class="pc-section-title">📋 Статистика по клубам</h4>';
-    html += careerTableHtml;
-
+    html += '<h4 class="pc-section-title">🏟 Карьера · клубы</h4><div class="pc-tags">' + clubsPlaquesHtml + '</div>';
+    html += '<h4 class="pc-section-title">📋 Статистика по клубам</h4>' + careerTableHtml;
     return html;
   }
 
   /* ============================================================
-     ГЛАВНАЯ ФУНКЦИЯ — открыть досье
+     ГЛАВНАЯ
      ============================================================ */
   function openPlayerModal(playerRef, fallbackClub) {
     try {
-      /* 1. Разбор аргументов */
       var parsed = parseArgs(playerRef, fallbackClub);
       var targetId = parsed.id;
       var targetName = parsed.name;
@@ -623,63 +572,62 @@
         return null;
       }
 
-      console.log('[openPlayerModal] Открытие досье:',
-                  { id: targetId, name: targetName, club: clubHint });
+      /* 1. Поиск в database.js */
+      var dbPlayer = findInDatabase(targetId, targetName, clubHint);
 
-      /* 2. Через PlayerResolver */
+      /* 2. Если нашли в базе и у нас нет ID — берём оттуда */
+      if (dbPlayer && dbPlayer.id) {
+        targetId = dbPlayer.id;
+      }
+
+      /* 3. Через PlayerResolver */
       var resolved = null;
       if (window.PlayerResolver && window.PlayerResolver.resolve) {
-        try {
-          resolved = window.PlayerResolver.resolve(targetId || targetName, clubHint);
-        } catch (e) {
-          console.warn('[openPlayerModal] resolve error:', e);
-        }
+        try { resolved = window.PlayerResolver.resolve(targetId || targetName, clubHint); }
+        catch (e) {}
       }
 
-      /* 3. Компактное имя */
-      var compact = (resolved && resolved.full) || targetName || 'Неизвестный игрок';
-      compact = compactName(compact);
+      /* 4. Компактное имя */
+      var compact = '';
+      if (dbPlayer && dbPlayer.lastName && dbPlayer.firstName) {
+        compact = dbPlayer.lastName + ' ' + dbPlayer.firstName;
+      } else if (resolved && resolved.full) {
+        compact = compactName(resolved.full);
+      } else {
+        compact = compactName(targetName);
+      }
 
-      /* 4. ID */
-      var finalId = targetId || (resolved && resolved.id) || null;
+      /* 5. ⚡ Каскад: полное ФИО */
+      var officialFull = cascadeFullName(targetId, compact, clubHint, dbPlayer);
 
-      /* 5. ⚡ Полное официальное ФИО — через playerPersonal */
-      var officialFull = findFullOfficialName(
-        finalId,
-        compact,
-        clubHint || (resolved && resolved.club) || ''
-      );
+      /* 6. ⚡ Каскад: позиция */
+      var position = cascadePosition(dbPlayer, resolved);
 
-      /* 6. Позиция */
-      var position = (resolved && resolved.pos) ||
-                     (parsed.obj && parsed.obj.pos) ||
-                     'УНИ';
+      /* 7. ⚡ Каскад: дата рождения */
+      var birth = cascadeBirthDate(targetId, compact, clubHint, dbPlayer);
 
-      /* 7. ⚡ Дата рождения — сквозной поиск через playerPersonal */
-      var birth = findBirthDate(finalId, compact, clubHint);
-      if (!birth && resolved && resolved.birth) birth = resolved.birth;
-
-      /* 8. Фото */
-      var photo = findPhoto(finalId, compact, clubHint);
+      /* 8. ⚡ Каскад: фото */
+      var photo = cascadePhoto(targetId, compact, clubHint, dbPlayer);
 
       /* 9. Клуб */
-      var club = (resolved && resolved.club) || clubHint || '';
+      var club = '';
+      if (dbPlayer && dbPlayer.clubs && dbPlayer.clubs.length) {
+        club = dbPlayer.clubs[dbPlayer.clubs.length - 1];
+      } else if (resolved && resolved.club) {
+        club = resolved.club;
+      } else {
+        club = clubHint || '';
+      }
 
       /* 10. Карьера */
-      var career = buildCareer(finalId, compact);
+      var career = buildCareer(targetId, compact);
 
       /* 11. Награды */
-      var awards = [];
-      if (finalId && window.database && window.database.getPlayer) {
-        try {
-          var dbP = window.database.getPlayer(finalId);
-          if (dbP && dbP.awards) awards = dbP.awards;
-        } catch (e) {}
-      }
+      var awards = (dbPlayer && dbPlayer.awards) ? dbPlayer.awards : [];
 
       /* 12. Профиль */
       var profile = {
-        id: finalId,
+        id: targetId,
         displayName: compact,
         fullOfficial: officialFull || compact,
         position: position,
@@ -692,16 +640,12 @@
         totalStats: {
           matches: career.total.m,
           goals: career.total.g,
-          assists: career.total.a,
-          yellow: career.total.yc,
-          red: career.total.rc
+          assists: career.total.a
         }
       };
 
       /* 13. Модалка */
-      var modal = document.getElementById('playerCabinetModal') ||
-                  document.getElementById('playerModal');
-
+      var modal = document.getElementById('playerCabinetModal') || document.getElementById('playerModal');
       if (!modal) {
         modal = document.createElement('div');
         modal.id = 'playerCabinetModal';
@@ -716,7 +660,6 @@
         document.body.appendChild(modal);
       }
 
-      /* 14. Body */
       var body = document.getElementById('playerCabinetBody');
       if (!body) {
         body = document.createElement('div');
@@ -726,31 +669,25 @@
         else modal.appendChild(body);
       }
 
-      /* 15. Рендер */
       try {
         body.innerHTML = renderCabinetHTML(profile);
       } catch (renderErr) {
         console.error('[openPlayerModal] render error:', renderErr);
-        body.innerHTML =
-          '<div style="padding:30px;text-align:center;color:#fca5a5;">' +
-            '⚠️ Не удалось отобразить профиль<br>' +
-            '<small style="color:#94a3b8;">' + escapeHtml(compact) + '</small>' +
-          '</div>';
+        body.innerHTML = '<div style="padding:30px;text-align:center;color:#fca5a5;">⚠️ Ошибка рендера</div>';
       }
 
-      /* 16. Показать */
       modal.classList.add('show');
       modal.style.display = 'flex';
       modal.style.visibility = 'visible';
       modal.style.zIndex = '1000';
       document.body.style.overflow = 'hidden';
 
-      console.log('[openPlayerModal] ✅ Открыто:',
-                  '| компакт:', compact,
-                  '| официально:', officialFull,
-                  '| ДР:', birth || '—',
-                  '| фото:', photo ? 'есть' : 'нет',
-                  '| клубов:', career.clubs.length);
+      console.log('[openPlayerModal] ✅',
+        '| id:', targetId,
+        '| full:', officialFull,
+        '| pos:', position,
+        '| birth:', birth || '—',
+        '| dbPlayer:', dbPlayer ? 'ДА' : 'нет');
 
       return profile;
 
@@ -762,12 +699,9 @@
 
   function closePlayerCabinet() {
     try {
-      ['playerCabinetModal', 'playerModal'].forEach(function (id) {
+      ['playerCabinetModal','playerModal'].forEach(function (id) {
         var m = document.getElementById(id);
-        if (m) {
-          m.style.display = 'none';
-          m.classList.remove('show');
-        }
+        if (m) { m.style.display = 'none'; m.classList.remove('show'); }
       });
       document.body.style.overflow = '';
     } catch (e) {}
@@ -781,15 +715,10 @@
   window.openPlayerDossier = openPlayerModal;
   window.openPlayerCabinet = openPlayerModal;
   window.__openPlayerCabinet = openPlayerModal;
-
   window.closePlayerCabinet = closePlayerCabinet;
   window.closePlayerModal = closePlayerCabinet;
-
-  /* Утилиты */
   window.compactPlayerName = compactName;
-  window.fullPlayerName = function (fio) { return fullName(fio); };
 
-  /* Делегирование кликов */
   if (!window.__playerClickBound) {
     window.__playerClickBound = true;
     document.addEventListener('click', function (e) {
@@ -797,11 +726,10 @@
       if (!el) return;
       var pRef = el.getAttribute('data-player');
       if (!pRef) return;
-      e.preventDefault();
-      e.stopPropagation();
+      e.preventDefault(); e.stopPropagation();
       window.openPlayerModal(pRef);
     }, true);
   }
 
-  console.log('[player-modal-safe] v3.1 · playerPersonal + teamMedia + компакт/полное ФИО + ДР');
+  console.log('[player-modal-safe] v5.0 · database.js первичен · каскад дат рождения · 4 merge-пары работают');
 })();

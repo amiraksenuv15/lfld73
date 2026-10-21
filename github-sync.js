@@ -1,14 +1,13 @@
 /* ============================================================
-   github-sync.js v5.0
+   github-sync.js v5.1
 
-   ПУБЛИКАЦИЯ В GITHUB ВСЕХ МОДУЛЕЙ:
+   ПУБЛИКАЦИЯ В GITHUB:
 
-   1. allTournamentsMasterData.js — мастер-база + фото (legacy)
+   1. allTournamentsMasterData.js — мастер-база турниров
    2. teamPhotosData.js — главные фото команд (модульное)
    3. playerPersonalData.js — персональные данные игроков (модульное)
-   4. teamMediaData.js — модульное медиа по клубам
-
-   Каждый файл публикуется отдельно через PUT /contents/:path.
+   4. teamMediaData.js — медиа-реестр по клубам
+   5. bannerSlidesData.js — слайды главного баннера (НОВОЕ)
    ============================================================ */
 (function () {
   'use strict';
@@ -18,18 +17,16 @@
   var GH_BRANCH = 'main';
 
   var FILES = {
-    master:          'allTournamentsMasterData.js',
-    teamPhotos:      'teamPhotosData.js',
-    playerPersonal:  'playerPersonalData.js',
-    teamMedia:       'teamMediaData.js'
+    master:         'allTournamentsMasterData.js',
+    teamPhotos:     'teamPhotosData.js',
+    playerPersonal: 'playerPersonalData.js',
+    teamMedia:      'teamMediaData.js',
+    bannerSlides:   'bannerSlidesData.js'
   };
 
   var TOKEN_KEY = 'lfld_gh_token';
   var API_BASE  = 'https://api.github.com';
 
-  /* ============================================================
-     Base64 с поддержкой кириллицы
-     ============================================================ */
   function toBase64Unicode(str) {
     return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function (m, p1) {
       return String.fromCharCode(parseInt(p1, 16));
@@ -40,9 +37,6 @@
   function saveToken(t) { try { localStorage.setItem(TOKEN_KEY, String(t || '')); } catch (e) {} }
   function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
 
-  /* ============================================================
-     СБОР ДАННЫХ ДЛЯ КАЖДОГО ФАЙЛА
-     ============================================================ */
   function collectAuxData() {
     var aux = {};
     function safeGet(key, def) {
@@ -54,7 +48,6 @@
     aux.clubMainPhoto       = safeGet('ff_club_main_photo', {});
     aux.tournaments         = safeGet('ff_tournaments', null);
     aux.customClubs         = safeGet('ff_custom_clubs', []);
-    aux.bannerSlides        = safeGet('bannerSlides', []);
     aux.organizers          = safeGet('ff_organizers', []);
     return aux;
   }
@@ -69,7 +62,6 @@
     copy.teamPhotos = Object.assign({}, M.teamPhotos || {});
     copy.playerPhotos = Object.assign({}, M.playerPhotos || {});
 
-    /* Подтянуть из localStorage на случай рассинхрона */
     try {
       var localTeams = JSON.parse(localStorage.getItem('ff_club_main_photo') || '{}');
       Object.keys(localTeams).forEach(function (club) {
@@ -101,16 +93,12 @@
     L.push('window.LFLD_MASTER_DB.teamPhotos   = window.LFLD_MASTER_DB.teamPhotos   || {};');
     L.push('window.LFLD_MASTER_DB.playerPhotos = window.LFLD_MASTER_DB.playerPhotos || {};');
     L.push('');
-    L.push('/* ---------- Реестр ID игроков ---------- */');
     L.push('window.LFLD_PLAYER_IDS = ' + JSON.stringify(playerIds, null, 2) + ';');
     L.push('');
-    L.push('/* ---------- Мастер-база + фото (legacy-совместимость) ---------- */');
     L.push('window.LFLD_MASTER_DB = Object.assign(window.LFLD_MASTER_DB, ' + JSON.stringify(copy, null, 2) + ');');
     L.push('');
-    L.push('/* ---------- Вспомогательные данные ---------- */');
     L.push('window.LFLD_AUX_DATA = ' + JSON.stringify(aux, null, 2) + ';');
     L.push('');
-    L.push('/* ---------- Автосинхронизация в localStorage ---------- */');
     L.push('(function () {');
     L.push('  if (!window.LFLD_AUX_DATA) return;');
     L.push('  var A = window.LFLD_AUX_DATA;');
@@ -118,9 +106,7 @@
     L.push('    if (!value) return;');
     L.push('    try {');
     L.push('      var existing = JSON.parse(localStorage.getItem(key) || "null");');
-    L.push('      var merged = (existing && typeof existing === "object")');
-    L.push('        ? Object.assign({}, value, existing)');
-    L.push('        : value;');
+    L.push('      var merged = (existing && typeof existing === "object") ? Object.assign({}, value, existing) : value;');
     L.push('      localStorage.setItem(key, JSON.stringify(merged));');
     L.push('    } catch (e) {}');
     L.push('  }');
@@ -128,9 +114,6 @@
     L.push('  mergeInto("ff_symbolic_teams",        A.symbolicTeams);');
     L.push('  mergeInto("ff_club_main_photo",       A.clubMainPhoto);');
     L.push('  mergeInto("ff_tournaments",           A.tournaments);');
-    L.push('  if (Array.isArray(A.customClubs) && A.customClubs.length) {');
-    L.push('    try { var cc = JSON.parse(localStorage.getItem("ff_custom_clubs") || "[]"); A.customClubs.forEach(function (c) { if (!c || !c.name) return; if (!cc.find(function (x) { return x.name === c.name; })) cc.push(c); }); localStorage.setItem("ff_custom_clubs", JSON.stringify(cc)); } catch (e) {}');
-    L.push('  }');
     L.push('})();');
     L.push('');
 
@@ -141,8 +124,7 @@
     if (window.teamPhotos && window.teamPhotos.generateFileContent) {
       return window.teamPhotos.generateFileContent();
     }
-    /* Fallback */
-    var data = (window.LFLD_TEAM_PHOTOS) || {};
+    var data = window.LFLD_TEAM_PHOTOS || {};
     return (
       '/* teamPhotosData.js — автогенерация */\n' +
       'window.LFLD_TEAM_PHOTOS = window.LFLD_TEAM_PHOTOS || {};\n' +
@@ -154,8 +136,7 @@
     if (window.playerPersonal && window.playerPersonal.generateFileContent) {
       return window.playerPersonal.generateFileContent();
     }
-    /* Fallback */
-    var data = (window.LFLD_PLAYER_PERSONAL) || {};
+    var data = window.LFLD_PLAYER_PERSONAL || {};
     return (
       '/* playerPersonalData.js — автогенерация */\n' +
       'window.LFLD_PLAYER_PERSONAL = window.LFLD_PLAYER_PERSONAL || {};\n' +
@@ -166,11 +147,8 @@
   function buildTeamMediaFileContent() {
     var data = {};
     try {
-      if (window.teamMedia && window.teamMedia.exportAll) {
-        data = window.teamMedia.exportAll();
-      } else if (window.LFLD_TEAMS_MEDIA) {
-        data = window.LFLD_TEAMS_MEDIA;
-      }
+      if (window.teamMedia && window.teamMedia.exportAll) data = window.teamMedia.exportAll();
+      else if (window.LFLD_TEAMS_MEDIA) data = window.LFLD_TEAMS_MEDIA;
     } catch (e) {}
     var ts = new Date().toISOString();
     return (
@@ -180,6 +158,53 @@
       '   ============================================================ */\n\n' +
       'window.LFLD_TEAMS_MEDIA = window.LFLD_TEAMS_MEDIA || {};\n\n' +
       'Object.assign(window.LFLD_TEAMS_MEDIA, ' + JSON.stringify(data, null, 2) + ');\n'
+    );
+  }
+
+  /* ⚡ НОВОЕ: слайды баннера */
+  function buildBannerSlidesFileContent() {
+    var slides = [];
+
+    /* 1. Из bannerManager (приоритет) */
+    if (window.bannerManager && window.bannerManager.exportSlides) {
+      try { slides = window.bannerManager.exportSlides(); } catch (e) {}
+    }
+
+    /* 2. Из LFLD_BANNER_SLIDES */
+    if ((!slides || !slides.length) && window.LFLD_BANNER_SLIDES && Array.isArray(window.LFLD_BANNER_SLIDES)) {
+      slides = window.LFLD_BANNER_SLIDES.slice();
+    }
+
+    /* 3. Из localStorage */
+    if ((!slides || !slides.length)) {
+      try {
+        var raw = localStorage.getItem('bannerSlides');
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) slides = parsed;
+        }
+      } catch (e) {}
+    }
+
+    var ts = new Date().toISOString();
+
+    return (
+      '/* ============================================================\n' +
+      '   bannerSlidesData.js — автогенерация из админки\n' +
+      '   Опубликовано: ' + ts + '\n' +
+      '   ============================================================ */\n\n' +
+      'window.LFLD_BANNER_SLIDES = ' + JSON.stringify(slides, null, 2) + ';\n\n' +
+      '/* ---------- Автосинхронизация в localStorage ---------- */\n' +
+      '(function () {\n' +
+      '  try {\n' +
+      '    if (window.LFLD_BANNER_SLIDES && window.LFLD_BANNER_SLIDES.length) {\n' +
+      '      var existing = localStorage.getItem("bannerSlides");\n' +
+      '      if (!existing) {\n' +
+      '        localStorage.setItem("bannerSlides", JSON.stringify(window.LFLD_BANNER_SLIDES));\n' +
+      '      }\n' +
+      '    }\n' +
+      '  } catch (e) {}\n' +
+      '})();\n'
     );
   }
 
@@ -229,9 +254,6 @@
     });
   }
 
-  /**
-   * Публикация одного файла.
-   */
   function publishFile(token, path, content) {
     return getFileSha(token, path).then(function (sha) {
       return putFile(token, path, content, sha, 'Auto-sync ' + path + ' · ' + new Date().toLocaleString('ru-RU'));
@@ -275,17 +297,17 @@
     w.innerHTML =
       '<div class="admin-extras-section gh-sync-section">' +
         '<h3>🔗 Синхронизация с GitHub</h3>' +
-        '<p>Публикация всех данных и медиа в репозиторий <strong>' + GH_OWNER + '/' + GH_REPO + '</strong>, ветка <code>' + GH_BRANCH + '</code>.</p>' +
-        '<p style="font-size:12px;color:#94a3b8;">Публикуются файлы:</p>' +
+        '<p>Публикация в репозиторий <strong>' + GH_OWNER + '/' + GH_REPO + '</strong>, ветка <code>' + GH_BRANCH + '</code>.</p>' +
         '<ul style="font-size:12px;color:#cbd5e1;margin:6px 0 16px 20px;">' +
           '<li><code>' + FILES.master + '</code> — мастер-база турниров</li>' +
-          '<li><code>' + FILES.teamPhotos + '</code> — главные фото команд</li>' +
-          '<li><code>' + FILES.playerPersonal + '</code> — персональные данные игроков</li>' +
-          '<li><code>' + FILES.teamMedia + '</code> — медиа-реестр по клубам</li>' +
+          '<li><code>' + FILES.teamPhotos + '</code> — фото команд</li>' +
+          '<li><code>' + FILES.playerPersonal + '</code> — персональные данные</li>' +
+          '<li><code>' + FILES.teamMedia + '</code> — медиа по клубам</li>' +
+          '<li><code>' + FILES.bannerSlides + '</code> — слайды баннера</li>' +
         '</ul>' +
         '<div class="form-row">' +
           '<div class="form-group" style="flex:1;">' +
-            '<label>Персональный токен GitHub (PAT)</label>' +
+            '<label>Токен GitHub (PAT)</label>' +
             '<input type="password" id="gh-token-input" placeholder="ghp_..." value="' + (savedToken ? savedToken.replace(/"/g, '&quot;') : '') + '" autocomplete="off">' +
           '</div>' +
           '<div class="form-group" style="display:flex;align-items:flex-end;gap:8px;">' +
@@ -337,7 +359,6 @@
     setButtonBusy(true);
     setStatus('⏳ Подготовка данных...', 'info');
 
-    /* Собираем содержимое всех файлов */
     var payload;
     try {
       if (window.lfldMedia && window.lfldMedia.loadFromStorage) {
@@ -357,7 +378,8 @@
         master:         buildMasterFileContent(),
         teamPhotos:     buildTeamPhotosFileContent(),
         playerPersonal: buildPlayerPersonalFileContent(),
-        teamMedia:      buildTeamMediaFileContent()
+        teamMedia:      buildTeamMediaFileContent(),
+        bannerSlides:   buildBannerSlidesFileContent()
       };
     } catch (e) {
       setButtonBusy(false);
@@ -365,23 +387,17 @@
       return;
     }
 
-    /* Поочерёдная публикация всех 4 файлов */
     var tasks = [
-      { name: 'Мастер-база', path: FILES.master,         content: payload.master },
-      { name: 'Фото команд', path: FILES.teamPhotos,     content: payload.teamPhotos },
-      { name: 'Данные игроков', path: FILES.playerPersonal, content: payload.playerPersonal },
-      { name: 'Медиа по клубам', path: FILES.teamMedia,  content: payload.teamMedia }
+      { name: 'Мастер-база',      path: FILES.master,         content: payload.master },
+      { name: 'Фото команд',      path: FILES.teamPhotos,     content: payload.teamPhotos },
+      { name: 'Данные игроков',   path: FILES.playerPersonal, content: payload.playerPersonal },
+      { name: 'Медиа по клубам',  path: FILES.teamMedia,      content: payload.teamMedia },
+      { name: 'Слайды баннера',   path: FILES.bannerSlides,   content: payload.bannerSlides }
     ];
 
     var results = [];
-    var totalPhotos = 0;
-    try {
-      var tp = (window.LFLD_TEAM_PHOTOS && Object.keys(window.LFLD_TEAM_PHOTOS).length) || 0;
-      var pp = (window.LFLD_PLAYER_PERSONAL && Object.keys(window.LFLD_PLAYER_PERSONAL).length) || 0;
-      totalPhotos = tp + pp;
-    } catch (e) {}
-
     var idx = 0;
+
     function next() {
       if (idx >= tasks.length) {
         setButtonBusy(false);
@@ -391,7 +407,7 @@
             : '❌ ' + r.name + ': ' + r.error;
         }).join('\n');
         setStatus(
-          'Публикация завершена' + (totalPhotos ? ' · медиа: ' + totalPhotos : '') + ':\n' + summary,
+          'Публикация завершена:\n' + summary,
           results.every(function (r) { return r.ok; }) ? 'ok' : 'err'
         );
         setTimeout(hideStatus, 12000);
@@ -418,9 +434,6 @@
     next();
   }
 
-  /* ============================================================
-     ХУК В АДМИНКУ
-     ============================================================ */
   function patchAdmin() {
     var prev = window.onAdminPanelOpened;
     window.onAdminPanelOpened = function () {
@@ -434,7 +447,7 @@
     if (document.getElementById('view-admin') && document.getElementById('view-admin').style.display === 'block') {
       setTimeout(renderBlock, 100);
     }
-    console.log('[github-sync] v5.0 · публикует: мастер, teamPhotos, playerPersonal, teamMedia');
+    console.log('[github-sync] v5.1 · публикует 5 файлов (включая bannerSlidesData.js)');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

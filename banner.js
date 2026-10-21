@@ -1,5 +1,15 @@
 /* ============================================================
-   banner.js — динамический слайдер главной + фон сайта
+   banner.js v5.0
+
+   Слайдер главной + фон сайта.
+
+   ИСПРАВЛЕНИЯ:
+   - Приоритет данных:
+     1) localStorage bannerSlides (свежие правки админа)
+     2) window.LFLD_BANNER_SLIDES (bannerSlidesData.js)
+     3) Встроенные DEFAULT_SLIDES
+   - При сохранении: обновляется и localStorage, и LFLD_BANNER_SLIDES
+     (для публикации в GitHub через github-sync.js)
    ============================================================ */
 (function () {
   'use strict';
@@ -18,24 +28,59 @@
 
   var bannerState = { slides: [], current: 0, timer: null };
 
-  /* ============ Хранилище слайдов ============ */
+  function genSlideId() {
+    return 'slide_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+  }
+
+  function normalizeSlide(s) {
+    if (typeof s === 'string') return { id: genSlideId(), url: s, enabled: true };
+    if (!s || typeof s !== 'object') return null;
+    return {
+      id: s.id || genSlideId(),
+      url: s.url || '',
+      enabled: s.enabled !== false
+    };
+  }
+
+  /* ============================================================
+     ЗАГРУЗКА
+     ============================================================ */
   function loadSlides() {
+    /* 1. localStorage — свежие правки админа */
     try {
       var raw = localStorage.getItem(BANNER_KEY);
-      if (!raw) return DEFAULT_SLIDES.map(function (url) { return { url: url, enabled: true }; });
-      var parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return [];
-      return parsed.map(function (s) {
-        if (typeof s === 'string') return { url: s, enabled: true };
-        return { url: s.url || '', enabled: s.enabled !== false };
-      }).filter(function (s) { return s.url; });
-    } catch (e) {
-      return DEFAULT_SLIDES.map(function (url) { return { url: url, enabled: true }; });
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) {
+          var normalized = parsed.map(normalizeSlide).filter(function (s) { return s && s.url; });
+          if (normalized.length) return normalized;
+        }
+      }
+    } catch (e) {}
+
+    /* 2. window.LFLD_BANNER_SLIDES (из bannerSlidesData.js) */
+    if (window.LFLD_BANNER_SLIDES && Array.isArray(window.LFLD_BANNER_SLIDES) && window.LFLD_BANNER_SLIDES.length) {
+      var fromFile = window.LFLD_BANNER_SLIDES.map(normalizeSlide).filter(function (s) { return s && s.url; });
+      if (fromFile.length) {
+        /* Сохраняем в localStorage для последующих правок */
+        try { localStorage.setItem(BANNER_KEY, JSON.stringify(fromFile)); } catch (e) {}
+        return fromFile;
+      }
     }
+
+    /* 3. Встроенные дефолты */
+    var defs = DEFAULT_SLIDES.map(function (url) {
+      return { id: genSlideId(), url: url, enabled: true };
+    });
+    try { localStorage.setItem(BANNER_KEY, JSON.stringify(defs)); } catch (e) {}
+    return defs;
   }
 
   function saveSlides(slides) {
+    /* 1. localStorage */
     try { localStorage.setItem(BANNER_KEY, JSON.stringify(slides)); } catch (e) {}
+    /* 2. window.LFLD_BANNER_SLIDES — для github-sync */
+    window.LFLD_BANNER_SLIDES = slides.slice();
   }
 
   function loadInterval() {
@@ -44,10 +89,12 @@
   }
   function saveInterval(ms) {
     ms = Math.max(1000, parseInt(ms, 10) || DEFAULT_INTERVAL);
-    localStorage.setItem(INTERVAL_KEY, String(ms));
+    try { localStorage.setItem(INTERVAL_KEY, String(ms)); } catch (e) {}
   }
 
-  /* ============ Фон сайта ============ */
+  /* ============================================================
+     ФОН САЙТА
+     ============================================================ */
   function applySiteBackground() {
     var url = localStorage.getItem(BG_KEY);
     if (url) {
@@ -64,13 +111,15 @@
   }
 
   function setSiteBackground(url) {
-    if (url) localStorage.setItem(BG_KEY, url);
-    else localStorage.removeItem(BG_KEY);
+    if (url) try { localStorage.setItem(BG_KEY, url); } catch (e) {}
+    else try { localStorage.removeItem(BG_KEY); } catch (e) {}
     applySiteBackground();
   }
   function clearSiteBackground() { setSiteBackground(''); }
 
-  /* ============ Рендер слайдера ============ */
+  /* ============================================================
+     РЕНДЕР
+     ============================================================ */
   function getActiveSlides() {
     return bannerState.slides.filter(function (s) { return s.enabled; });
   }
@@ -80,12 +129,10 @@
     var dots = document.getElementById('welcomeDots');
     if (!hero || !dots) return;
 
-    // Чистим слайды
     hero.querySelectorAll('.welcome-slide').forEach(function (el) { el.remove(); });
 
     var active = getActiveSlides();
     if (!active.length) {
-      // Заглушка — оставляем темный фон
       var placeholder = document.createElement('div');
       placeholder.className = 'welcome-slide active welcome-slide-placeholder';
       hero.insertBefore(placeholder, hero.firstChild);
@@ -120,16 +167,10 @@
     idx = ((idx % total) + total) % total;
 
     var slides = document.querySelectorAll('#welcomeHero .welcome-slide');
-    var dots = document.querySelectorAll('#welcomeHero ~ * .welcome-dot, #welcomeDots .welcome-dot');
-    // Более надёжно:
-    dots = document.querySelectorAll('#welcomeDots .welcome-dot');
+    var dots = document.querySelectorAll('#welcomeDots .welcome-dot');
 
-    slides.forEach(function (s, i) {
-      s.classList.toggle('active', i === idx);
-    });
-    dots.forEach(function (d, i) {
-      d.classList.toggle('active', i === idx);
-    });
+    slides.forEach(function (s, i) { s.classList.toggle('active', i === idx); });
+    dots.forEach(function (d, i) { d.classList.toggle('active', i === idx); });
 
     bannerState.current = idx;
   }
@@ -150,21 +191,21 @@
     renderBanner();
   }
 
-  /* ============ Публичный API для админки ============ */
+  /* ============================================================
+     ПУБЛИЧНОЕ API
+     ============================================================ */
   window.bannerManager = {
     getSlides: function () { return bannerState.slides.slice(); },
     setSlides: function (slides) {
-      bannerState.slides = slides.map(function (s) {
-        if (typeof s === 'string') return { url: s, enabled: true };
-        return { url: s.url || '', enabled: s.enabled !== false };
-      }).filter(function (s) { return s.url; });
-      saveSlides(bannerState.slides);
+      var normalized = slides.map(normalizeSlide).filter(function (s) { return s && s.url; });
+      bannerState.slides = normalized;
+      saveSlides(normalized);
       restart();
     },
     addSlide: function (url) {
       if (!url) return;
       var slides = bannerState.slides.slice();
-      slides.push({ url: url, enabled: true });
+      slides.push({ id: genSlideId(), url: url, enabled: true });
       window.bannerManager.setSlides(slides);
     },
     removeSlide: function (idx) {
@@ -191,14 +232,21 @@
     setInterval: function (ms) { saveInterval(ms); restart(); },
     restart: restart,
 
-    // Фон сайта
+    /* Фон сайта */
     getBackground: function () { return localStorage.getItem(BG_KEY) || ''; },
     setBackground: setSiteBackground,
     clearBackground: clearSiteBackground,
-    applyBackground: applySiteBackground
+    applyBackground: applySiteBackground,
+
+    /* Для github-sync */
+    exportSlides: function () {
+      return bannerState.slides.slice();
+    }
   };
 
-  /* ============ Инициализация ============ */
+  /* ============================================================
+     ИНИЦИАЛИЗАЦИЯ
+     ============================================================ */
   function init() {
     bannerState.slides = loadSlides();
     applySiteBackground();
@@ -215,8 +263,8 @@
   } else {
     init();
   }
-  // Если welcome рендерится из admin-extras, повторно перезапустим
+
   window.addEventListener('load', function () { setTimeout(restart, 100); });
 
-  console.log('[banner] загружен');
+  console.log('[banner] v5.0 · источник: localStorage → LFLD_BANNER_SLIDES → defaults');
 })();

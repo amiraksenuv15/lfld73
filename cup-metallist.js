@@ -1,6 +1,19 @@
 /* ============================================================
-   cup-metallist.js — «Кубок Металлиста 2026»
+   cup-metallist.js v4.0 — «Кубок Металлиста 2026»
+   ТУРНИР ПАМЯТИ БУТЯЕВА Г.А.
    Место проведения: ФОК «Легенда», г. Димитровград
+
+   ОБНОВЛЕНИЯ v4.0:
+   - Формат: 10 команд (2 группы × 5)
+   - Группа А: Химмаш, Ак Барс, Detali63SMR, ПТИМАШ, Автостар
+   - Группа Б: Металлист, Спринт, Тонус, Авангард, Real TJK
+   - Групповой этап: 20 матчей (18 — 31.10, 2 — 01.11)
+   - Серебряный плей-офф: 1/4 (А4–Б5, Б4–А5) → полуфиналы → финал
+   - Золотой плей-офф: полуфиналы (А1–Б2, Б1–А2) → финал
+   - Таймы плей-офф: 15 минут
+   - Награждение: 17:30, 01.11.2026
+   - formatVersion: 2 — при несовпадении с сохранённой версией
+     турнир пересобирается заново
    ============================================================ */
 (function () {
   'use strict';
@@ -8,51 +21,73 @@
   var CUP_KEY      = 'cup_metallist_2026';
   var ROSTER_STORE = 'ff_cup_metallist_rosters';
   var ACTIVE_TAB   = 'groups';
+  var FORMAT_VERSION = 2;
 
   var VENUE_NAME   = 'ФОК Легенда';
   var VENUE_LABEL  = 'ФОК «Легенда»';
   var VENUE_FULL   = 'ФОК «Легенда», г. Димитровград';
 
+  /* ===== КЛУБЫ ===== */
   var CLUB_HIMMASH   = 'Химмаш';
+  var CLUB_AKBARS    = 'Ак Барс';
   var CLUB_DETALI    = 'Detali63SMR';
   var CLUB_PTIMASH   = 'ПТИМАШ';
-  var CLUB_AKBARS    = 'Ак Барс';
+  var CLUB_AUTOSTAR  = 'Автостар';
   var CLUB_METALLIST = 'Металлист';
+  var CLUB_SPRINT    = 'Спринт';
   var CLUB_TONUS     = 'Тонус';
   var CLUB_AVANGARD  = 'Авангард';
-  var CLUB_SPRINT    = 'Спринт';
+  var CLUB_REALTJK   = 'Real TJK';
 
+  /* ===== ГРУППЫ ===== */
   var GROUPS = {
-    A: [CLUB_HIMMASH, CLUB_DETALI, CLUB_PTIMASH, CLUB_AKBARS],
-    B: [CLUB_METALLIST, CLUB_TONUS, CLUB_AVANGARD, CLUB_SPRINT]
+    A: [CLUB_HIMMASH, CLUB_AKBARS, CLUB_DETALI, CLUB_PTIMASH, CLUB_AUTOSTAR],
+    B: [CLUB_METALLIST, CLUB_SPRINT, CLUB_TONUS, CLUB_AVANGARD, CLUB_REALTJK]
   };
 
+  /* ===== РАСПИСАНИЕ ГРУППОВОГО ЭТАПА ===== */
   var SCHEDULE = [
-    { time: '14:00', t1: CLUB_HIMMASH,   t2: CLUB_DETALI,    group: 'A' },
-    { time: '14:30', t1: CLUB_AVANGARD,  t2: CLUB_SPRINT,    group: 'B' },
-    { time: '15:00', t1: CLUB_PTIMASH,   t2: CLUB_AKBARS,    group: 'A' },
-    { time: '15:30', t1: CLUB_METALLIST, t2: CLUB_TONUS,     group: 'B' },
-    { time: '16:00', t1: CLUB_HIMMASH,   t2: CLUB_PTIMASH,   group: 'A' },
-    { time: '16:30', t1: CLUB_METALLIST, t2: CLUB_AVANGARD,  group: 'B' },
-    { time: '17:00', t1: CLUB_DETALI,    t2: CLUB_AKBARS,    group: 'A' },
-    { time: '17:30', t1: CLUB_SPRINT,    t2: CLUB_TONUS,     group: 'B' },
-    { time: '18:00', t1: CLUB_HIMMASH,   t2: CLUB_AKBARS,    group: 'A' },
-    { time: '18:30', t1: CLUB_AVANGARD,  t2: CLUB_TONUS,     group: 'B' },
-    { time: '19:00', t1: CLUB_PTIMASH,   t2: CLUB_DETALI,    group: 'A' },
-    { time: '19:30', t1: CLUB_METALLIST, t2: CLUB_SPRINT,    group: 'B' }
+    /* ---------- 31.10.2026 · суббота ---------- */
+    { date: '31.10.2026', time: '12:00', t1: CLUB_PTIMASH,   t2: CLUB_AKBARS,    group: 'A', opening: true },
+    { date: '31.10.2026', time: '12:25', t1: CLUB_SPRINT,    t2: CLUB_AVANGARD,  group: 'B' },
+    { date: '31.10.2026', time: '12:50', t1: CLUB_AUTOSTAR,  t2: CLUB_DETALI,    group: 'A' },
+    { date: '31.10.2026', time: '13:15', t1: CLUB_TONUS,     t2: CLUB_REALTJK,   group: 'B' },
+    { date: '31.10.2026', time: '13:40', t1: CLUB_AKBARS,    t2: CLUB_AUTOSTAR,  group: 'A' },
+    { date: '31.10.2026', time: '14:05', t1: CLUB_SPRINT,    t2: CLUB_TONUS,     group: 'B' },
+    { date: '31.10.2026', time: '14:30', t1: CLUB_DETALI,    t2: CLUB_HIMMASH,   group: 'A' },
+    { date: '31.10.2026', time: '14:55', t1: CLUB_METALLIST, t2: CLUB_REALTJK,   group: 'B' },
+    { date: '31.10.2026', time: '15:20', t1: CLUB_PTIMASH,   t2: CLUB_AUTOSTAR,  group: 'A' },
+    { date: '31.10.2026', time: '15:45', t1: CLUB_METALLIST, t2: CLUB_TONUS,     group: 'B' },
+    { date: '31.10.2026', time: '16:10', t1: CLUB_HIMMASH,   t2: CLUB_AKBARS,    group: 'A' },
+    { date: '31.10.2026', time: '16:35', t1: CLUB_AVANGARD,  t2: CLUB_REALTJK,   group: 'B' },
+    { date: '31.10.2026', time: '17:00', t1: CLUB_PTIMASH,   t2: CLUB_HIMMASH,   group: 'A' },
+    { date: '31.10.2026', time: '17:30', t1: CLUB_SPRINT,    t2: CLUB_REALTJK,   group: 'B' },
+    { date: '31.10.2026', time: '18:00', t1: CLUB_DETALI,    t2: CLUB_AKBARS,    group: 'A' },
+    { date: '31.10.2026', time: '18:30', t1: CLUB_METALLIST, t2: CLUB_AVANGARD,  group: 'B' },
+    { date: '31.10.2026', time: '19:00', t1: CLUB_DETALI,    t2: CLUB_PTIMASH,   group: 'A' },
+    { date: '31.10.2026', time: '19:30', t1: CLUB_METALLIST, t2: CLUB_SPRINT,    group: 'B' },
+
+    /* ---------- 01.11.2026 · воскресенье ---------- */
+    { date: '01.11.2026', time: '10:00', t1: CLUB_AUTOSTAR,  t2: CLUB_HIMMASH,   group: 'A' },
+    { date: '01.11.2026', time: '10:30', t1: CLUB_AVANGARD,  t2: CLUB_TONUS,     group: 'B' }
   ];
 
+  /* ===== СЕРЕБРЯНЫЙ ПЛЕЙ-ОФФ ===== */
   var SILVER_PO = [
-    { stage: '1/2 финала',        time: '12:00', t1: 'А3', t2: 'Б4' },
-    { stage: '1/2 финала',        time: '13:00', t1: 'А4', t2: 'Б3' },
-    { stage: 'Матч за 3-е место', time: '14:00', t1: 'Проигр. (А3–Б4)', t2: 'Проигр. (А4–Б3)' },
-    { stage: 'ФИНАЛ Серебряного', time: '15:00', t1: 'Побед. (А3–Б4)',  t2: 'Побед. (А4–Б3)', final: true }
+    { stage: 'Серебряный 1/4 финала',    time: '11:00', t1: 'А4', t2: 'Б5' },
+    { stage: 'Серебряный 1/4 финала',    time: '11:30', t1: 'Б4', t2: 'А5' },
+    { stage: 'Серебряный полуфинал',     time: '12:40', t1: 'А3', t2: 'Побед. (А4–Б5)' },
+    { stage: 'Серебряный полуфинал',     time: '14:00', t1: 'Б3', t2: 'Побед. (Б4–А5)' },
+    { stage: 'Матч за 3-е место · Серебро', time: '14:40', t1: 'Проигр. СФ1', t2: 'Проигр. СФ2' },
+    { stage: 'ФИНАЛ · Серебряный',       time: '16:00', t1: 'Побед. СФ1', t2: 'Побед. СФ2', final: true }
   ];
+
+  /* ===== ЗОЛОТОЙ ПЛЕЙ-ОФФ ===== */
   var GOLD_PO = [
-    { stage: '1/2 финала',        time: '12:30', t1: 'А1', t2: 'Б2' },
-    { stage: '1/2 финала',        time: '13:30', t1: 'А2', t2: 'Б1' },
-    { stage: 'Матч за 3-е место', time: '14:30', t1: 'Проигр. (А1–Б2)', t2: 'Проигр. (А2–Б1)' },
-    { stage: 'ФИНАЛ Золотого',    time: '15:40', t1: 'Побед. (А1–Б2)',  t2: 'Побед. (А2–Б1)', final: true }
+    { stage: 'Золотой полуфинал',        time: '12:00', t1: 'А1', t2: 'Б2' },
+    { stage: 'Золотой полуфинал',        time: '13:20', t1: 'Б1', t2: 'А2' },
+    { stage: 'Матч за 3-е место · Золото', time: '15:20', t1: 'Проигр. ЗФ1', t2: 'Проигр. ЗФ2' },
+    { stage: 'ФИНАЛ · Золотой',          time: '16:40', t1: 'Побед. ЗФ1', t2: 'Побед. ЗФ2', final: true }
   ];
 
   function esc(s) {
@@ -63,18 +98,32 @@
   function escA(s) { return esc(s).replace(/'/g, '&#39;'); }
   function q(id) { return document.getElementById(id); }
 
-  /* ============================ РЕГИСТРАЦИЯ ============================ */
+  /* ============================ РЕГИСТРАЦИЯ КЛУБОВ ============================ */
   function ensureClubs() {
     var arr = window.clubsData; if (!arr) return;
-    var have = {}; arr.forEach(function (c) { have[c.name] = 1; });
-    if (!have[CLUB_DETALI]) arr.push({ name: CLUB_DETALI, logo: '⚽' });
-    if (!have[CLUB_TONUS])  arr.push({ name: CLUB_TONUS,  logo: '⚽' });
+    var byName = {}; arr.forEach(function (c) { byName[c.name] = c; });
+
+    function ensureClub(name, logo) {
+      if (!byName[name]) {
+        var nc = { name: name, logo: logo };
+        arr.push(nc);
+        byName[name] = nc;
+      } else if (!byName[name].logo || byName[name].logo === '⚽') {
+        byName[name].logo = logo;
+      }
+    }
+
+    ensureClub(CLUB_DETALI,  'logos/detali63.png');
+    ensureClub(CLUB_TONUS,   'logos/tonus.png');
+    ensureClub(CLUB_REALTJK, 'logos/realtjk.png');
   }
 
+  /* ============================ РЕГИСТРАЦИЯ ТУРНИРА ============================ */
   function ensureTournament() {
     var TD = window.tournamentsData; if (!TD) return;
-    // Если турнир уже есть — обновляем venue у существующих матчей
-    if (TD[CUP_KEY] && TD[CUP_KEY].isMetallistCup) {
+
+    /* Уже есть нужная версия — только venue обновляем */
+    if (TD[CUP_KEY] && TD[CUP_KEY].isMetallistCup && TD[CUP_KEY].formatVersion === FORMAT_VERSION) {
       TD[CUP_KEY].matches = (TD[CUP_KEY].matches || []).map(function (m) {
         m.venue = VENUE_NAME;
         m.stadium = VENUE_NAME;
@@ -86,23 +135,28 @@
       return;
     }
 
+    /* Старая версия — удаляем */
+    if (TD[CUP_KEY]) delete TD[CUP_KEY];
+
+    /* Формируем команды и матчи */
     var teams = GROUPS.A.concat(GROUPS.B);
     var matches = SCHEDULE.map(function (m) {
       return {
-        tour: 'Групповой этап · ' + m.group,
-        date: '31.10.2026 ' + m.time,
+        tour: 'Групповой этап · Группа ' + m.group,
+        date: m.date + ' ' + m.time,
         t1: m.t1, t2: m.t2,
         s1: 0, s2: 0, scorers: '',
         played: false, status: 'upcoming',
         group: m.group, time: m.time,
-        venue: VENUE_NAME,
-        stadium: VENUE_NAME
+        venue: VENUE_NAME, stadium: VENUE_NAME,
+        opening: !!m.opening
       };
     });
 
     TD[CUP_KEY] = {
-      title: 'Кубок Металлиста (2026)',
+      title: 'Турнир памяти Бутяева Г.А. «Кубок Металлиста» (2026)',
       isCup: true, isMetallistCup: true,
+      formatVersion: FORMAT_VERSION,
       status: 'announce',
       teams: teams, rosters: {}, matches: matches, awards: [],
       meta: {
@@ -112,7 +166,8 @@
         format: '2 тайма × 15 минут',
         venue: VENUE_FULL,
         venueShort: VENUE_NAME,
-        venueLabel: VENUE_LABEL
+        venueLabel: VENUE_LABEL,
+        formatVersion: FORMAT_VERSION
       }
     };
 
@@ -161,8 +216,9 @@
     rows.forEach(function (r, i) {
       var diff = r.gf - r.ga;
       var diffStr = diff > 0 ? '+' + diff : String(diff);
+      var placeClass = (i < 2) ? ' style="color:#f5a623;font-weight:800;"' : ((i < 4) ? ' style="color:#34d399;font-weight:700;"' : '');
       html += '<tr>' +
-        '<td>' + (i + 1) + '</td>' +
+        '<td' + placeClass + '>' + (i + 1) + '</td>' +
         '<td class="text-left"><span class="club-link" onclick="window.openClubCabinet && window.openClubCabinet(\'' + escA(r.name) + '\')">' +
           (window.getClubLogoForCard ? window.getClubLogoForCard(r.name) : '⚽') +
           '<strong>' + esc(r.name) + '</strong></span></td>' +
@@ -177,21 +233,55 @@
 
   /* ============================ РАСПИСАНИЕ ============================ */
   function renderScheduleChips() {
-    var html = '<div class="cup-schedule-grid">';
+    var byDate = {};
     SCHEDULE.forEach(function (m) {
-      html += '<div class="cup-match-chip">' +
-        '<div class="cup-match-row">' +
-          '<span class="cup-match-time">' + esc(m.time) + '</span>' +
-          '<span class="cup-match-venue-badge">📍 ' + esc(VENUE_LABEL) + '</span>' +
-        '</div>' +
-        '<div class="cup-match-teams">' +
-          '<span class="cup-match-t1">' + esc(m.t1) + '</span>' +
-          '<span class="cup-match-vs">—</span>' +
-          '<span class="cup-match-t2">' + esc(m.t2) + '</span>' +
-        '</div>' +
-      '</div>';
+      if (!byDate[m.date]) byDate[m.date] = [];
+      byDate[m.date].push(m);
     });
-    html += '</div>';
+    var dates = Object.keys(byDate).sort();
+
+    var dayHeaderStyle =
+      'font-family:var(--font-accent);font-size:13px;font-weight:900;color:#f5a623;' +
+      'text-transform:uppercase;letter-spacing:.1em;margin:22px 0 12px;' +
+      'padding-bottom:8px;border-bottom:2px solid rgba(245,166,35,.4);';
+
+    var openingBadgeStyle =
+      'margin-top:8px;padding:4px 10px;' +
+      'background:linear-gradient(135deg,#f5a623,#d97706);color:#070c18;' +
+      'font-size:10px;font-weight:900;border-radius:999px;' +
+      'letter-spacing:.05em;text-align:center;';
+
+    var html = '';
+    dates.forEach(function (date) {
+      var dayLabel = date;
+      if (date === '31.10.2026') dayLabel += ' · суббота';
+      else if (date === '01.11.2026') dayLabel += ' · воскресенье';
+
+      html += '<div style="' + dayHeaderStyle + '">📅 ' + esc(dayLabel) +
+        ' <span style="color:#94a3b8;font-weight:600;letter-spacing:.02em;font-size:11px;margin-left:8px;">📍 ' + esc(VENUE_LABEL) + '</span>' +
+      '</div>';
+
+      html += '<div class="cup-schedule-grid">';
+      byDate[date].forEach(function (m) {
+        var openingBadge = m.opening
+          ? '<div style="' + openingBadgeStyle + '">⭐ МАТЧ ОТКРЫТИЯ КУБКА</div>'
+          : '';
+
+        html += '<div class="cup-match-chip">' +
+          '<div class="cup-match-row">' +
+            '<span class="cup-match-time">' + esc(m.time) + '</span>' +
+            '<span class="cup-match-venue-badge">Группа ' + esc(m.group) + '</span>' +
+          '</div>' +
+          '<div class="cup-match-teams">' +
+            '<span class="cup-match-t1">' + esc(m.t1) + '</span>' +
+            '<span class="cup-match-vs">—</span>' +
+            '<span class="cup-match-t2">' + esc(m.t2) + '</span>' +
+          '</div>' +
+          openingBadge +
+        '</div>';
+      });
+      html += '</div>';
+    });
     return html;
   }
 
@@ -213,7 +303,7 @@
 
   function renderAwardPlate() {
     return '<div class="cup-award-plate">' +
-      '🏆 16:30 — ТОРЖЕСТВЕННОЕ НАГРАЖДЕНИЕ КОМАНД<br>' +
+      '🏆 17:30 — ТОРЖЕСТВЕННОЕ НАГРАЖДЕНИЕ КОМАНД<br>' +
       '<span style="font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:none;">' +
       'обязательное присутствие всех участников турнира!</span></div>';
   }
@@ -224,18 +314,20 @@
     var meta = (t && t.meta) || {};
     var html = '';
     html += '<div class="cup-info-card">';
-    html +=   '<h2 style="margin:0 0 4px;font-size:20px;">🏆 Кубок Металлиста (2026)</h2>';
+    html +=   '<h2 style="margin:0 0 4px;font-size:20px;">🏆 Турнир памяти Бутяева Г.А.<br><span style="color:#f5a623;">«Кубок Металлиста» (2026)</span></h2>';
     html +=   '<p style="color:#94a3b8;margin:0 0 18px;font-size:13px;">Официальный двухдневный кубковый турнир ЛФЛД</p>';
 
     html +=   '<div class="cup-venue-highlight">📍 Место проведения всех матчей: <strong>' + esc(VENUE_LABEL) + '</strong></div>';
 
-    html +=   '<div class="cup-info-row"><div class="cup-info-label">Даты</div><div class="cup-info-value">' + esc(meta.dates || '31.10.2026 — 01.11.2026') + '</div></div>';
-    html +=   '<div class="cup-info-row"><div class="cup-info-label">Формат</div><div class="cup-info-value">' + esc(meta.format || '2 тайма × 15 минут') + '</div></div>';
-    html +=   '<div class="cup-info-row"><div class="cup-info-label">Место проведения</div><div class="cup-info-value">' + esc(meta.venue || VENUE_FULL) + '</div></div>';
-    html +=   '<div class="cup-info-row"><div class="cup-info-label">Участники</div><div class="cup-info-value">8 команд (2 группы × 4)</div></div>';
-    html +=   '<div class="cup-info-row"><div class="cup-info-label">День 1</div><div class="cup-info-value">31.10.2026 — Групповой этап (по 3 матча в каждой группе)</div></div>';
-    html +=   '<div class="cup-info-row"><div class="cup-info-label">День 2</div><div class="cup-info-value">01.11.2026 — Золотой плей-офф (1–4 места) и Серебряный плей-офф (5–8 места)</div></div>';
-    html +=   '<div class="cup-info-row"><div class="cup-info-label">Регламент плей-офф</div><div class="cup-info-value">1/2 финала → Матч за 3-е место → ФИНАЛ. В финалах — 2 тайма по 15 минут.</div></div>';
+    html +=   '<div class="cup-info-row"><div class="cup-info-label">Даты</div><div class="cup-info-value">31.10.2026 — 01.11.2026</div></div>';
+    html +=   '<div class="cup-info-row"><div class="cup-info-label">Формат</div><div class="cup-info-value">2 тайма × 15 минут</div></div>';
+    html +=   '<div class="cup-info-row"><div class="cup-info-label">Место проведения</div><div class="cup-info-value">' + esc(VENUE_FULL) + '</div></div>';
+    html +=   '<div class="cup-info-row"><div class="cup-info-label">Участники</div><div class="cup-info-value">10 команд (2 группы × 5)</div></div>';
+    html +=   '<div class="cup-info-row"><div class="cup-info-label">День 1 · 31.10</div><div class="cup-info-value">Групповой этап — 18 матчей</div></div>';
+    html +=   '<div class="cup-info-row"><div class="cup-info-label">День 2 · 01.11</div><div class="cup-info-value">Групповой этап — 2 матча · Серебряный и Золотой плей-офф</div></div>';
+    html +=   '<div class="cup-info-row"><div class="cup-info-label">Серебряный плей-офф</div><div class="cup-info-value">1/4 финала (А4–Б5, Б4–А5) → полуфиналы (А3–поб.1, Б3–поб.2) → матч за 3-е место → финал</div></div>';
+    html +=   '<div class="cup-info-row"><div class="cup-info-label">Золотой плей-офф</div><div class="cup-info-value">Полуфиналы (А1–Б2, Б1–А2) → матч за 3-е место → финал</div></div>';
+    html +=   '<div class="cup-info-row"><div class="cup-info-label">Награждение</div><div class="cup-info-value">01.11.2026 в 17:30 — торжественное награждение команд</div></div>';
     html += '</div>';
     html += renderAwardPlate();
     return html;
@@ -273,7 +365,7 @@
     v.innerHTML =
       '<button class="back-btn" id="cupBackBtn" type="button">← На главную</button>' +
       '<div class="cup-hero">' +
-        '<h1 class="cup-hero-title">🏆 Кубок Металлиста <span style="color:#f5a623;">2026</span></h1>' +
+        '<h1 class="cup-hero-title">🏆 Турнир памяти Бутяева Г.А.<br><span style="color:#f5a623;font-size:.75em;">«Кубок Металлиста» 2026</span></h1>' +
         '<p class="cup-hero-sub">31.10.2026 — Групповой этап · 01.11.2026 — Золотой и Серебряный плей-офф</p>' +
         '<p class="cup-hero-venue">📍 Место проведения: <strong>' + esc(VENUE_LABEL) + '</strong>, г. Димитровград</p>' +
         '<p class="cup-hero-badge">📣 Статус: Анонс · Скоро</p>' +
@@ -299,7 +391,8 @@
       body.innerHTML =
         '<div class="cup-venue-banner">📍 Все матчи турнира проходят в <strong>' + esc(VENUE_LABEL) + '</strong></div>' +
         '<div class="cup-group-grid">' + renderGroupTableHtml('A') + renderGroupTableHtml('B') + '</div>' +
-        '<h3 class="cup-section-title">📅 Расписание · 31.10.2026 · ' + esc(VENUE_LABEL) + '</h3>' + renderScheduleChips();
+        '<h3 class="cup-section-title">📅 Расписание группового этапа · ' + esc(VENUE_LABEL) + '</h3>' +
+        renderScheduleChips();
       return;
     }
     if (ACTIVE_TAB === 'gold') {
@@ -311,7 +404,7 @@
     if (ACTIVE_TAB === 'silver') {
       body.innerHTML =
         '<div class="cup-venue-banner">📍 Все матчи плей-офф проходят в <strong>' + esc(VENUE_LABEL) + '</strong></div>' +
-        renderPlayoffHtml(SILVER_PO, '🥈 Серебряный плей-офф — за 5–8 места · 01.11.2026') + renderAwardPlate();
+        renderPlayoffHtml(SILVER_PO, '🥈 Серебряный плей-офф — за 5–8+ места · 01.11.2026') + renderAwardPlate();
       return;
     }
     if (ACTIVE_TAB === 'info') { body.innerHTML = renderInfoHtml(); return; }
@@ -652,7 +745,7 @@
       try { patchEnterTournament(); } catch (e) {}
       try { patchAdminOpen(); }       catch (e) {}
       try { if (window.renderSidebar) window.renderSidebar(); } catch (e) {}
-      console.log('[cup-metallist] загружен. Турнир:', CUP_KEY, '· Локация:', VENUE_FULL);
+      console.log('[cup-metallist] v4.0 загружен · 10 команд · formatVersion=' + FORMAT_VERSION + ' · ' + VENUE_FULL);
     }, 300);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

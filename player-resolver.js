@@ -1,7 +1,14 @@
 /* ============================================================
-   player-resolver.js v6.0
+   player-resolver.js v6.1
 
-   ИСПРАВЛЕНИЯ:
+   ИСПРАВЛЕНИЯ v6.1:
+   - ⚡ МАНОНОВЫ — РОДНЫЕ БРАТЬЯ (Самандар 2005 / Рустам 2011).
+     Не один человек! Не сливать!
+     Добавлена защита от склейки: если в протоколе только «Манонов»
+     без инициала — резолвер возвращает fallback (isAmbiguous: true),
+     не приписывая чужую статистику.
+
+   ИСПРАВЛЕНИЯ v6.0:
    - Васин Андрей + Васин Егор + Васин Егор Евгеньевич → p_vasin_egor
    - Самарцев Александр + Самарцев Марк → p_samartsev_mark
    - Светличный Даниил/Данил + Светличный Никита → p_svetlichnyy_nikita
@@ -46,29 +53,57 @@
       aliases: ['светличный_даниил', 'светличный_данил', 'светличный_данила', 'светличный_д', 'светличный']
     },
 
-    /* Нагорновы */
-    { id: 'p_nagornov_ilya', full: 'Нагорнов Илья', club: 'Химмаш', pos: 'ЗАЩ', key: 'нагорнов_илья', aliases: ['нагорнов_и'] },
-    { id: 'p_nagornov_maksim', full: 'Нагорнов Максим', club: 'ПТИМАШ', pos: 'НАП', key: 'нагорнов_максим', aliases: ['нагорнов_м'] },
+    /* Нагорновы — тоже РАЗНЫЕ люди */
+    { id: 'p_nagornov_ilya',   full: 'Нагорнов Илья',   club: 'Химмаш',  pos: 'ЗАЩ', key: 'нагорнов_илья',   aliases: ['нагорнов_и'] },
+    { id: 'p_nagornov_maksim', full: 'Нагорнов Максим', club: 'ПТИМАШ',  pos: 'НАП', key: 'нагорнов_максим', aliases: ['нагорнов_м'] },
 
-    /* Галеевы */
+    /* Галеевы — РАЗНЫЕ люди (Айдар в Спринте, Далил в Комете) */
     { id: 'p_galeev_aydar', full: 'Галеев Айдар', club: 'Спринт', pos: 'УНИ', key: 'галеев_айдар', aliases: ['галеев_а'] },
     { id: 'p_galeev_dalil', full: 'Галеев Далил', club: 'Комета', pos: 'УНИ', key: 'галеев_далил', aliases: ['галеев_данил', 'галеев_д', 'галеев'] },
 
-    /* Алексеевы */
+    /* Алексеевы — РАЗНЫЕ люди */
     { id: 'p_alekseev_evgeniy', full: 'Алексеев Евгений', club: 'Спринт', pos: 'ЗАЩ', key: 'алексеев_евгений', aliases: ['алексеев_е'] },
-    { id: 'p_alekseev_matvey', full: 'Алексеев Матвей', club: 'Спринт', pos: 'УНИ', key: 'алексеев_матвей', aliases: ['алексеев_м'] },
-    { id: 'p_alekseev_andrey', full: 'Алексеев Андрей', club: 'Комета', pos: 'НАП', key: 'алексеев_андрей', aliases: ['алексеев_а'] },
+    { id: 'p_alekseev_matvey',  full: 'Алексеев Матвей',  club: 'Спринт', pos: 'УНИ', key: 'алексеев_матвей',  aliases: ['алексеев_м'] },
+    { id: 'p_alekseev_andrey',  full: 'Алексеев Андрей',  club: 'Комета', pos: 'НАП', key: 'алексеев_андрей',  aliases: ['алексеев_а'] },
 
-    /* Калимуллины */
-    { id: 'p_kalimullin_ildar', full: 'Калимуллин Ильдар', club: 'Ак Барс', pos: 'НАП', key: 'калимуллин_ильдар', aliases: ['калимуллин_и'] },
-    { id: 'p_kalimullin_rinal', full: 'Калимуллин Риналь', club: 'СШ Лада', pos: 'НАП', key: 'калимуллин_риналь', aliases: ['калимуллин_р'] },
+    /* Калимуллины — РАЗНЫЕ люди */
+    { id: 'p_kalimullin_ildar', full: 'Калимуллин Ильдар', club: 'Ак Барс',  pos: 'НАП', key: 'калимуллин_ильдар', aliases: ['калимуллин_и'] },
+    { id: 'p_kalimullin_rinal', full: 'Калимуллин Риналь', club: 'СШ Лада',  pos: 'НАП', key: 'калимуллин_риналь', aliases: ['калимуллин_р'] },
 
-    /* Маноновы */
-    { id: 'p_manonov_samandar', full: 'Манонов Самандар Носирджонович', club: 'Металлист', pos: 'ПЗ', key: 'манонов_самандар', aliases: ['манонов_с'] },
-    { id: 'p_manonov_rustam', full: 'Манонов Рустам Носирджонович', club: 'Металлист', pos: 'ПЗ', key: 'манонов_рустам', aliases: ['манонов_р'] },
+    /* ════════════════════════════════════════════════════════════
+       ⚡ МАНОНОВЫ — РОДНЫЕ БРАТЬЯ. НЕ ОДИН ЧЕЛОВЕК! НЕ СЛИВАТЬ!
+       - Самандар Носирджонович, 25.04.2005 (старший)
+       - Рустам Носирджонович,   25.05.2011 (младший)
+       В протоколах встречаются как «Манонов С.» / «Манонов Р.» —
+       это РАЗНЫЕ игроки. Если стоит только «Манонов» без инициала —
+       резолвер вернёт fallback с флагом isAmbiguous, чтобы не
+       приписать гол/карточку не тому брату.
+       ════════════════════════════════════════════════════════════ */
+    {
+      id: 'p_manonov_samandar',
+      full: 'Манонов Самандар Носирджонович',
+      display: 'Манонов Самандар',
+      fullOfficial: 'Манонов Самандар Носирджонович',
+      club: 'Металлист',
+      pos: 'ПЗ',
+      birth: '25.04.2005',
+      key: 'манонов_самандар',
+      aliases: ['манонов_с', 'манонов_самандар_нос']
+    },
+    {
+      id: 'p_manonov_rustam',
+      full: 'Манонов Рустам Носирджонович',
+      display: 'Манонов Рустам',
+      fullOfficial: 'Манонов Рустам Носирджонович',
+      club: 'Металлист',
+      pos: 'ПЗ',
+      birth: '25.05.2011',
+      key: 'манонов_рустам',
+      aliases: ['манонов_р', 'манонов_рустам_нос']
+    },
 
-    /* Юсуповы */
-    { id: 'p_yusupov_marat', full: 'Юсупов Марат', club: 'Металлист', pos: 'УНИ', key: 'юсупов_марат', aliases: ['юсупов_м'] },
+    /* Юсуповы — РАЗНЫЕ люди */
+    { id: 'p_yusupov_marat',  full: 'Юсупов Марат',  club: 'Металлист', pos: 'УНИ', key: 'юсупов_марат',  aliases: ['юсупов_м'] },
     { id: 'p_yusupov_ruslan', full: 'Юсупов Руслан', club: 'Металлист', pos: 'НАП', key: 'юсупов_руслан', aliases: ['юсупов_р'] },
 
     /* Аксенов */
@@ -190,6 +225,20 @@
   }
 
   /* ============================================================
+     ⚡ СПИСОК НЕОДНОЗНАЧНЫХ ФАМИЛИЙ
+     Если в протоколе стоит только фамилия (без имени/инициала),
+     а в реестре несколько носителей — возвращаем fallback.
+     ============================================================ */
+  var AMBIGUOUS_SURNAMES = {
+    'манонов':  ['p_manonov_samandar', 'p_manonov_rustam'],
+    'нагорнов': ['p_nagornov_ilya', 'p_nagornov_maksim'],
+    'галеев':   ['p_galeev_aydar', 'p_galeev_dalil'],
+    'алексеев': ['p_alekseev_evgeniy', 'p_alekseev_matvey', 'p_alekseev_andrey'],
+    'калимуллин': ['p_kalimullin_ildar', 'p_kalimullin_rinal'],
+    'юсупов':   ['p_yusupov_marat', 'p_yusupov_ruslan']
+  };
+
+  /* ============================================================
      ГЛАВНЫЙ РЕЗОЛВЕР
      ============================================================ */
   function resolvePlayer(ref, clubHint) {
@@ -215,6 +264,23 @@
       if (!name) return null;
 
       var key = getPersonKey(name);
+
+      /* ⚡ ЗАЩИТА: если ключ — это ТОЛЬКО фамилия из списка неоднозначных,
+         не гадаем. Возвращаем fallback с флагом isAmbiguous. */
+      if (key && AMBIGUOUS_SURNAMES[key] && key.indexOf('_') === -1) {
+        console.warn('[player-resolver] Неоднозначная фамилия без имени:', name,
+          '→ кандидатов:', AMBIGUOUS_SURNAMES[key].length);
+        return {
+          id: null,
+          full: String(name).trim(),
+          club: clubHint || '',
+          pos: 'УНИ',
+          isFallback: true,
+          isAmbiguous: true,
+          candidates: AMBIGUOUS_SURNAMES[key].slice()
+        };
+      }
+
       if (key && byKey[key]) return normalizeResult(byKey[key]);
       if (key && byAlias[key]) return normalizeResult(byAlias[key]);
 
@@ -292,6 +358,7 @@
     getPersonKey: getPersonKey,
     byId: function (id) { return byId[id] ? normalizeResult(byId[id]) : null; },
     all: function () { return SPECIAL_REGISTRY.slice(); },
+    ambiguousSurnames: function () { return Object.assign({}, AMBIGUOUS_SURNAMES); },
     open: function (ref, clubHint) {
       var p = resolvePlayer(ref, clubHint);
       if (p && window.openPlayerModal) {
@@ -301,5 +368,5 @@
     }
   };
 
-  console.log('[player-resolver] v6.0 · ' + SPECIAL_REGISTRY.length + ' спец-профилей · Васин/Самарцев/Светличный дедуплицированы');
+  console.log('[player-resolver] v6.1 · ' + SPECIAL_REGISTRY.length + ' спец-профилей · ⚡ Маноновы разделены · защита от неоднозначных фамилий активна');
 })();
